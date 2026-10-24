@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Open作业贴 · 小窗</title>
+<style>
+  :root{
+    --bg:#0f1210;
+    --fg:#e8efe8;
+    --dim:#8fa094;
+    --line:#2a332c;
+    --bar:#151b16;
+  }
+  *{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+  html,body{
+    margin:0;height:100%;overflow:hidden;      /* 关键：永远不出滚动条 */
+    background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+  }
+  body{display:flex;flex-direction:column}
+
+  /* ---------- 自绘标题栏（可拖动） ---------- */
+  .bar{
+    flex:none;height:30px;display:flex;align-items:center;gap:4px;
+    padding:0 4px 0 10px;background:var(--bar);
+    -webkit-app-region:drag;cursor:default;
+  }
+  .bar .date{
+    flex:1 1 auto;min-width:0;
+    font-size:11.5px;color:var(--dim);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    -webkit-app-region:drag;
+  }
+  .bar button{
+    -webkit-app-region:no-drag;
+    flex:none;width:22px;height:22px;padding:0;
+    display:grid;place-items:center;
+    border:0;border-radius:6px;background:transparent;
+    color:var(--dim);cursor:pointer;
+    transition:background-color .12s,color .12s;
+  }
+  .bar button:hover{background:#222c25;color:var(--fg)}
+  .bar button.on{color:#7edbae}
+  .bar button svg{width:13px;height:13px;fill:currentColor}
+
+  /* ---------- 作业列表 ---------- */
+  .list{
+    flex:1 1 auto;min-height:0;
+    display:flex;flex-direction:column;
+    gap:var(--gap,6px);
+    padding:var(--pad,8px);
+    overflow:hidden;                            /* 不是 auto */
+  }
+  .row{
+    flex:none;
+    display:flex;align-items:flex-start;gap:var(--gapx,7px);
+    padding:var(--rowPad,5px 7px);
+    border-radius:7px;
+    background:#171e19;
+    line-height:1.34;
+  }
+  .badge{
+    flex:none;
+    width:var(--bsz,17px);height:var(--bsz,17px);
+    display:grid;place-items:center;
+    border-radius:50%;
+    font-size:calc(var(--bsz,17px) * 0.6);
+    font-weight:700;line-height:1;
+  }
+  .body{flex:1 1 auto;min-width:0}
+  .l1{
+    font-size:var(--fs,13px);
+    overflow-wrap:break-word;word-break:break-word;
+  }
+  .l1 .book{font-weight:600}
+  .l1 .detail{color:#b9d4c3}
+  .l2{
+    font-size:calc(var(--fs,13px) * 0.86);
+    color:var(--dim);margin-top:1px;
+    overflow-wrap:break-word;word-break:break-word;
+  }
+  .due{
+    display:inline-block;
+    padding:0 4px;border-radius:3px;
+    background:rgba(255,207,107,.16);
+    color:#ffcf6b;
+  }
+  .empty{
+    flex:1 1 auto;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--dim);font-size:13px;text-align:center;padding:16px;
+  }
+
+  /* 内容溢出时，最后几行淡出，提示"还有更多"（但不出滚动条） */
+  .list.is-overflow{
+    -webkit-mask-image:linear-gradient(to bottom,#000 82%,transparent 100%);
+            mask-image:linear-gradient(to bottom,#000 82%,transparent 100%);
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="date" id="dateText">—</span>
+  <button id="btnPin" class="on" title="取消置顶">
+    <svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>
+  </button>
+  <button id="btnMin" title="最小化">
+    <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+  </button>
+  <button id="btnClose" title="关闭小窗">
+    <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
+</div>
+
+<div class="list" id="list"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var api = window.miniAPI || {};
+  var listEl = document.getElementById('list');
+  var dateEl = document.getElementById('dateText');
+  var pinned = true;
+  var lastData = null;
+
+  /* ---------- 渲染 ---------- */
+  function render(data) {
+    lastData = data;
+    listEl.innerHTML = '';
+
+    if (!data || !data.items || !data.items.length) {
+      dateEl.textContent = (data && data.dateText) || '—';
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = '今天还没有作业';
+      listEl.appendChild(e);
+      listEl.classList.remove('is-overflow');
+      return;
+    }
+
+    dateEl.textContent = data.dateText + '　共 ' + data.items.length + ' 条';
+
+    data.items.forEach(function (it) {
+      var row = document.createElement('div');
+      row.className = 'row';
+
+      var b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = it.short || '';
+      b.style.background = 'rgba(' + it.rgb + ',.22)';
+      b.style.color = 'rgb(' + it.rgb + ')';
+      row.appendChild(b);
+
+      var body = document.createElement('div');
+      body.className = 'body';
+
+      var l1 = document.createElement('div');
+      l1.className = 'l1';
+      var book = document.createElement('span');
+      book.className = 'book';
+      book.textContent = it.book || '';
+      l1.appendChild(book);
+
+      var tail = it.detail || it.lessonTitle || '';
+      if (tail) {
+        var d = document.createElement('span');
+        d.className = 'detail';
+        d.textContent = ' ' + tail;
+        l1.appendChild(d);
+      }
+      body.appendChild(l1);
+
+      var notes = [];
+      if (it.note) notes.push(it.note);
+      if (it.due) notes.push('交 ' + it.due);
+      if (notes.length) {
+        var l2 = document.createElement('div');
+        l2.className = 'l2';
+        if (it.due) {
+          var due = document.createElement('span');
+          due.className = 'due';
+          due.textContent = it.due;
+          l2.appendChild(due);
+          if (it.note) l2.appendChild(document.createTextNode(' ' + it.note));
+        } else {
+          l2.textContent = it.note;
+        }
+        body.appendChild(l2);
+      }
+
+      row.appendChild(body);
+      listEl.appendChild(row);
+    });
+
+    fit();
+  }
+
+  /* ---------- 自适应：靠调字号，而不是出滚动条 ----------
+   * 思路：二分找「能让所有行都塞进可用高度」的最大字号。
+   *   下限 9px（再小没法看），上限 18px。
+   *   到达下限还塞不下，就允许裁切 + 底部淡出，并且此时窗口
+   *   已经到主进程设置的最小高度，用户拖不到更小了。
+   */
+  var MIN_FS = 9;
+  var MAX_FS = 18;
+
+  function fits(fs) {
+    var root = document.documentElement.style;
+    root.setProperty('--fs', fs + 'px');
+    root.setProperty('--bsz', Math.max(14, Math.round(fs * 1.3)) + 'px');
+    root.setProperty('--gap', Math.max(3, Math.round(fs * 0.42)) + 'px');
+    root.setProperty('--pad', Math.max(5, Math.round(fs * 0.6)) + 'px');
+    root.setProperty('--gapx', Math.max(4, Math.round(fs * 0.5)) + 'px');
+    root.setProperty('--rowPad', Math.max(3, Math.round(fs * 0.35)) + 'px ' +
+                                   Math.max(4, Math.round(fs * 0.5)) + 'px');
+    /* 强制重排后比较 */
+    return listEl.scrollHeight <= listEl.clientHeight + 1;
+  }
+
+  function fit() {
+    /* 从大往小试，二分收敛 */
+    var lo = MIN_FS, hi = MAX_FS, best = MIN_FS;
+    while (lo <= hi) {
+      var mid = Math.floor((lo + hi) / 2);
+      if (fits(mid)) { best = mid; lo = mid + 1; }
+      else { hi = mid - 1; }
+    }
+    fits(best);
+    /* 到最小字号还溢出 → 淡出提示 */
+    var overflow = !fits(best);
+    listEl.classList.toggle('is-overflow', overflow);
+    if (overflow) fits(best);
+  }
+
+  /* ---------- 窗口按钮 ---------- */
+  document.getElementById('btnPin').addEventListener('click', function () {
+    pinned = !pinned;
+    this.classList.toggle('on', pinned);
+    this.title = pinned ? '取消置顶' : '置顶';
+    if (api.pin) api.pin(pinned);
+  });
+
+  document.getElementById('btnMin').addEventListener('click', function () {
+    if (api.minimize) api.minimize();
+  });
+
+  document.getElementById('btnClose').addEventListener('click', function () {
+    if (api.close) api.close();
+  });
+
+  /* ---------- 接收主进程数据 ---------- */
+  if (api.onData) {
+    api.onData(function (data) { render(data); });
+  }
+
+  /* 窗口尺寸变化时重新适配（不是滚动） */
+  var rt = null;
+  window.addEventListener('resize', function () {
+    if (rt) clearTimeout(rt);
+    rt = setTimeout(fit, 60);
+  });
+
+  /* 字体加载完再算一次 */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { setTimeout(fit, 30); });
+  }
+
+  /* 主动要一次数据（防止错过首次推送） */
+  if (api.refresh) api.refresh();
+
+  window.__miniRender = render;
+})();
+</script>
+</body>
+</html>

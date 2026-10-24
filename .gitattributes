@@ -1,0 +1,9 @@
+# 统一行尾：仓库里存 LF，Windows 上检出成 CRLF
+* text=auto eol=lf
+
+*.js   text diff=javascript
+*.cjs  text diff=javascript
+*.json text
+*.md   text
+*.html text
+*.sh   text eol=lf

@@ -1,0 +1,30 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+electron/out/
+electron/dist/
+dist/
+*.deb
+*.AppImage
+
+# ---- 本机数据与密钥（**绝不能进仓库**）----
+# 纯离线版没有云同步配置，但仍然不要提交任何本机数据文件
+data.json
+*.local.json
+*配置*.json
+作业数据-*.json
+
+# ---- 日志与临时文件 ----
+*.log
+.tmp/
+tmp/
+.DS_Store
+Thumbs.db
+
+# ---- 编辑器 ----
+.vscode/
+.idea/
+*.swp
+
+# ---- 验收截图（体积大，按需保留）----
+screenshots/
+*.report.md

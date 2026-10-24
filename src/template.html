@@ -1,0 +1,2559 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>Open作业贴 · 教室大屏</title>
+<style>
+/* ============================================================================
+   Open作业贴 · 教室大屏作业板
+   单文件 · 零依赖 · 离线可用 · Material Design 3
+   兼容性：不使用 color-mix / :has 等新特性；主体面向 Chromium 90+
+   ========================================================================= */
+
+/* ---------- 1. Design tokens ---------- */
+:root{
+  --md-sys-typescale-headline-large:2rem;
+  --md-sys-typescale-headline-medium:1.75rem;
+  --md-sys-typescale-headline-small:1.5rem;
+  --md-sys-typescale-title-large:1.375rem;
+  --md-sys-typescale-title-medium:1rem;
+  --md-sys-typescale-title-small:0.875rem;
+  --md-sys-typescale-body-large:1rem;
+  --md-sys-typescale-body-medium:0.875rem;
+  --md-sys-typescale-body-small:0.75rem;
+  --md-sys-typescale-label-large:0.875rem;
+  --md-sys-typescale-label-medium:0.75rem;
+  --md-sys-typescale-label-small:0.6875rem;
+
+  --md-sys-shape-xs:4px;
+  --md-sys-shape-sm:8px;
+  --md-sys-shape-md:12px;
+  --md-sys-shape-lg:16px;
+  --md-sys-shape-xl:28px;
+  --md-sys-shape-full:999px;
+
+  --md-sys-elevation-0:none;
+  --md-sys-elevation-1:0 1px 2px 0 rgba(0,0,0,.30), 0 1px 3px 1px rgba(0,0,0,.15);
+  --md-sys-elevation-2:0 1px 2px 0 rgba(0,0,0,.30), 0 2px 6px 2px rgba(0,0,0,.15);
+  --md-sys-elevation-3:0 1px 3px 0 rgba(0,0,0,.30), 0 4px 8px 3px rgba(0,0,0,.15);
+  --md-sys-elevation-4:0 2px 3px 0 rgba(0,0,0,.30), 0 6px 10px 4px rgba(0,0,0,.15);
+
+  --md-sys-state-hover:0.08;
+  --md-sys-state-focus:0.12;
+  --md-sys-state-pressed:0.12;
+
+  --md-sys-motion-emphasized:cubic-bezier(.2,0,0,1);
+  --md-sys-motion-emphasized-decelerate:cubic-bezier(.05,.7,.1,1);
+  --md-sys-motion-standard:cubic-bezier(.2,0,0,1);
+  --md-sys-motion-dur-short2:100ms;
+  --md-sys-motion-dur-short4:200ms;
+  --md-sys-motion-dur-medium2:300ms;
+  --md-sys-motion-dur-medium4:400ms;
+
+  --gutter:1.5rem;
+  --margin:2rem;
+
+  /* 字号 = 16px × 屏幕档位(--screen-scale) × 用户微调(--ui-scale) × 自动伸缩(--fit-scale)
+   * 三个变量必须分开，原因各不相同：
+   *   --screen-scale 由媒体查询给（>=1600px 是 1.5），行内样式打不过媒体查询；
+   *   --ui-scale     由「+/-」按钮写在 html 行内（用户偏好，存进 localStorage）；
+   *   --fit-scale    由 autoFit() 写在 html 行内（按内容自动缩放）。
+   * 后两者都写行内，如果共用一个变量就会互相覆盖 ——
+   * 实测过一次：autoFit 刚设 0.62，boot 里的 applyScale() 立刻用 prefs.scale=1 盖掉，
+   * 结果自动伸缩完全失效。 */
+  --screen-scale:1;
+  --ui-scale:1;
+  --fit-scale:1;
+
+  /* 科目强调色（RGB 三元组，供 rgb()/rgba() 使用） */
+  --accent:126,219,174;
+
+  /* chip 选中态的对勾遮罩（内联 SVG，零外链） */
+  --check-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+}
+
+/* 隐藏一律优先 */
+[hidden]{display:none!important}
+
+/* 深色主题（默认：黑板） */
+:root,[data-theme="dark"]{
+  --md-sys-color-primary:rgb(126,219,174);
+  --md-sys-color-on-primary:rgb(0,57,30);
+  --md-sys-color-primary-container:rgb(0,82,46);
+  --md-sys-color-on-primary-container:rgb(156,248,200);
+  --md-sys-color-secondary-container:rgb(55,75,62);
+  --md-sys-color-on-secondary-container:rgb(210,232,217);
+  --md-sys-color-tertiary-container:rgb(37,76,88);
+  --md-sys-color-on-tertiary-container:rgb(193,233,247);
+  --md-sys-color-error:rgb(255,180,171);
+  /* 存储失败警告条用；之前只定义了 error 没定义 container，导致警告条透明 */
+  --md-sys-color-error-container:rgb(147,0,10);
+  --md-sys-color-on-error-container:rgb(255,218,214);
+  --md-sys-color-surface:rgb(16,20,16);
+  --md-sys-color-surface-container-low:rgb(24,29,25);
+  --md-sys-color-surface-container:rgb(28,33,29);
+  --md-sys-color-surface-container-high:rgb(39,43,39);
+  --md-sys-color-surface-container-highest:rgb(49,54,49);
+  --md-sys-color-on-surface:rgb(224,228,222);
+  --md-sys-color-on-surface-variant:rgb(191,201,191);
+  --md-sys-color-outline:rgb(137,147,138);
+  --md-sys-color-outline-variant:rgb(63,73,65);
+  --md-sys-color-inverse-surface:rgb(224,228,222);
+  --md-sys-color-inverse-on-surface:rgb(45,50,45);
+  --md-sys-color-inverse-primary:rgb(0,109,64);
+  --md-sys-color-scrim:rgba(0,0,0,.62);
+  --state-layer:rgba(224,228,222,.08);
+  --state-layer-strong:rgba(224,228,222,.16);
+}
+
+/* 浅色主题（白板） */
+[data-theme="light"]{
+  --md-sys-color-primary:rgb(0,109,64);
+  --md-sys-color-on-primary:rgb(255,255,255);
+  --md-sys-color-primary-container:rgb(156,248,200);
+  --md-sys-color-on-primary-container:rgb(0,33,15);
+  --md-sys-color-secondary-container:rgb(210,232,217);
+  --md-sys-color-on-secondary-container:rgb(11,31,21);
+  --md-sys-color-tertiary-container:rgb(193,233,247);
+  --md-sys-color-on-tertiary-container:rgb(0,31,41);
+  --md-sys-color-error:rgb(186,26,26);
+  --md-sys-color-error-container:rgb(255,218,214);
+  --md-sys-color-on-error-container:rgb(65,0,1);
+  --md-sys-color-surface:rgb(245,251,244);
+  --md-sys-color-surface-container-low:rgb(239,245,238);
+  --md-sys-color-surface-container:rgb(233,239,233);
+  --md-sys-color-surface-container-high:rgb(227,233,227);
+  --md-sys-color-surface-container-highest:rgb(221,227,221);
+  --md-sys-color-on-surface:rgb(23,29,25);
+  --md-sys-color-on-surface-variant:rgb(63,73,65);
+  --md-sys-color-outline:rgb(111,121,112);
+  --md-sys-color-outline-variant:rgb(191,201,191);
+  --md-sys-color-inverse-surface:rgb(44,50,45);
+  --md-sys-color-inverse-on-surface:rgb(237,242,236);
+  --md-sys-color-inverse-primary:rgb(126,219,174);
+  --md-sys-color-scrim:rgba(0,0,0,.40);
+  --state-layer:rgba(23,29,25,.08);
+  --state-layer-strong:rgba(23,29,25,.16);
+    /* 滚动条专用：浅色下 outline-variant 太淡，滑块单独给一档 */
+    --sb-thumb: rgba(0,0,0,.18);
+    --sb-thumb-hover: rgba(0,0,0,.30);
+  }
+
+/* ---------- 2. Reset ---------- */
+*,*::before,*::after{box-sizing:border-box}
+/* 根字号由 JS 的 applyFontPx() 写入一张动态 style 标签（带 !important）。
+   这里只给一个静态兜底：任何情况下都不该依赖 calc 链 ——
+   实测 calc(16px * var(--a) * var(--b)) 在本环境算不出正确值。 */
+html{font-size:24px;-webkit-text-size-adjust:100%}
+body{
+  margin:0;height:100vh;height:100dvh;overflow:hidden;
+  background:var(--md-sys-color-surface);
+  color:var(--md-sys-color-on-surface);
+  font-family:"HarmonyOS Sans SC","MiSans","Source Han Sans SC","Noto Sans SC",
+              "PingFang SC","Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:var(--md-sys-typescale-body-large);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation}
+input,textarea{font:inherit;color:inherit}
+ul,ol{margin:0;padding:0;list-style:none}
+h1,h2,h3,h4{margin:0;font-weight:inherit}
+:focus-visible{outline:3px solid var(--md-sys-color-primary);outline-offset:2px;border-radius:var(--md-sys-shape-xs)}
+::selection{background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
+/* ==========================================================================
+ * 自定义滚动条
+ *
+ * 目标：细、圆、平时低调、悬停才明显，深浅主题通用。
+ * 做法：轨道透明；滑块用 outline 色；width 直接控制粗细。
+ *
+ * 两个坑（都踩过）：
+ *   ① 不要写 scrollbar-width / scrollbar-color —— 在较新 Chromium 里优先于
+ *      ::-webkit-scrollbar，会把滑块压成 2px 细线，自定义样式白写。
+ *   ② 不要用「粗透明边框 + background-clip:padding-box」把滑块内缩 ——
+ *      部分内核里会把滑块压到 2px，直接改 width 更可靠。
+ * ========================================================================== */
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{
+  background:var(--md-sys-color-outline-variant);
+  border-radius:999px;
+  min-height:2.5rem;
+}
+/* 悬停：加深一档，看得清但不刺眼 */
+*::-webkit-scrollbar-thumb:hover{
+  background:var(--md-sys-color-outline);
+}
+/* 拖动中：主题色，明确「正在滚这里」 */
+*::-webkit-scrollbar-thumb:active{
+  background:var(--md-sys-color-primary);
+}
+/* 横纵交汇的角落，别留突兀方块 */
+*::-webkit-scrollbar-corner{background:transparent}
+/* 上下翻页按钮：Chromium 默认不画，显式关掉防某些主题画出来 */
+*::-webkit-scrollbar-button{display:none;width:0;height:0}
+/* 注意：绝对不要加 scrollbar-width:thin —— 它在较新 Chromium 里优先于 ::-webkit-scrollbar，会把滚动条压成 2px 细线，让自定义样式失效 */
+.scroll-mask{overflow-y:auto;overscroll-behavior:contain}
+
+/* ---------- 3. 通用组件 ---------- */
+.icon-btn{
+  position:relative;display:inline-grid;place-items:center;
+  width:2.5rem;height:2.5rem;flex:none;
+  border-radius:var(--md-sys-shape-full);
+  color:var(--md-sys-color-on-surface-variant);
+  transition:background-color var(--md-sys-motion-dur-short2) linear;
+}
+.icon-btn::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;left:0;
+  border-radius:inherit;background:currentColor;opacity:0;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;pointer-events:none;
+}
+.icon-btn:hover::after{opacity:var(--md-sys-state-hover)}
+.icon-btn:active::after{opacity:var(--md-sys-state-pressed)}
+.icon-btn svg{width:1.375rem;height:1.375rem;fill:currentColor;pointer-events:none;position:relative;z-index:1}
+.icon-btn--sm{width:2.125rem;height:2.125rem}
+.icon-btn--sm svg{width:1.125rem;height:1.125rem}
+.icon-btn--danger:hover{color:var(--md-sys-color-error)}
+
+.btn{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  height:2.5rem;padding:0 1.5rem;flex:none;
+  border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;letter-spacing:.00625em;
+  white-space:nowrap;
+  transition:background-color var(--md-sys-motion-dur-short2) linear,box-shadow var(--md-sys-motion-dur-short2) linear;
+}
+.btn svg{width:1.125rem;height:1.125rem;fill:currentColor;flex:none;position:relative;z-index:1}
+.btn>span{position:relative;z-index:1}
+.btn::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;left:0;
+  border-radius:inherit;background:currentColor;opacity:0;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;pointer-events:none;
+}
+.btn:hover::after{opacity:var(--md-sys-state-hover)}
+.btn:active::after{opacity:var(--md-sys-state-pressed)}
+.btn[disabled]{opacity:.38;cursor:default}
+.btn[disabled]::after{display:none}
+.btn--filled{background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
+.btn--filled:hover{box-shadow:var(--md-sys-elevation-1)}
+.btn--tonal{background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container)}
+.btn--text{color:var(--md-sys-color-primary);padding:0 1rem}
+.btn--text.btn--neutral{color:var(--md-sys-color-on-surface-variant)}
+.btn--lg{height:2.75rem;padding:0 1.75rem;font-size:1rem}
+.btn--block{width:100%;justify-content:flex-start;padding-left:1.25rem;height:2.75rem}
+
+.chip{
+  position:relative;display:inline-flex;align-items:center;gap:.375rem;
+  height:2.25rem;padding:0 .875rem;flex:none;
+  border:1px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-sm);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;
+  color:var(--md-sys-color-on-surface-variant);
+  background:transparent;
+  transition:background-color var(--md-sys-motion-dur-short2) linear,
+             border-color var(--md-sys-motion-dur-short2) linear,
+             color var(--md-sys-motion-dur-short2) linear;
+}
+.chip::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;left:0;
+  border-radius:inherit;background:currentColor;opacity:0;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;pointer-events:none;
+}
+.chip:hover::after{opacity:var(--md-sys-state-hover)}
+.chip:active::after{opacity:var(--md-sys-state-pressed)}
+.chip[aria-pressed="true"]{
+  background:var(--md-sys-color-secondary-container);
+  border-color:transparent;
+  color:var(--md-sys-color-on-secondary-container);
+  padding-left:2rem;
+}
+.chip[aria-pressed="true"]::before{
+  content:"";position:absolute;left:.75rem;top:50%;margin-top:-.4375rem;
+  width:.875rem;height:.875rem;background:currentColor;
+  -webkit-mask:var(--check-mask) center/contain no-repeat;
+  mask:var(--check-mask) center/contain no-repeat;
+  pointer-events:none;
+}
+.chip--accent[aria-pressed="true"]{background:rgb(var(--accent));color:var(--md-sys-color-surface)}
+.chip--sm{height:1.875rem;padding:0 .625rem;font-size:var(--md-sys-typescale-label-medium)}
+.chip--sm[aria-pressed="true"]{padding-left:1.75rem}
+.chip--note{border-style:dashed}
+.chip--note:hover{border-style:solid}
+
+.textfield{
+  width:100%;height:3rem;padding:0 1rem;
+  background:var(--md-sys-color-surface-container-highest);
+  border:0;border-bottom:1px solid var(--md-sys-color-on-surface-variant);
+  border-radius:var(--md-sys-shape-xs) var(--md-sys-shape-xs) 0 0;
+  color:var(--md-sys-color-on-surface);
+  font-size:var(--md-sys-typescale-body-large);
+  transition:border-color var(--md-sys-motion-dur-short2) linear,background-color var(--md-sys-motion-dur-short2) linear;
+}
+.textfield::placeholder{color:var(--md-sys-color-on-surface-variant);opacity:.7}
+.textfield:hover{background:var(--md-sys-color-surface-container-high)}
+.textfield:focus{outline:none;border-bottom:2px solid var(--md-sys-color-primary)}
+
+.segmented{
+  display:inline-flex;height:2.75rem;padding:.1875rem;gap:.1875rem;
+  border:1px solid var(--md-sys-color-outline);
+  border-radius:var(--md-sys-shape-full);
+}
+.segmented button{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.375rem;
+  padding:0 1.375rem;border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;
+  color:var(--md-sys-color-on-surface);
+  transition:background-color var(--md-sys-motion-dur-short4) linear;
+}
+.segmented button svg{width:1.125rem;height:1.125rem;fill:currentColor}
+.segmented button[aria-selected="true"]{
+  background:var(--md-sys-color-secondary-container);
+  color:var(--md-sys-color-on-secondary-container);
+}
+
+/* ---------- 4. 外壳 ---------- */
+.app{display:grid;grid-template-rows:auto 1fr;height:100vh;height:100dvh;min-height:0}
+.topbar{
+  display:flex;align-items:center;gap:1rem;
+  padding:1.125rem var(--margin) .625rem;
+  opacity:.55;
+  transition:opacity var(--md-sys-motion-dur-medium2) linear;
+}
+/* 品牌区要能收缩（min-width:0），否则它把顶栏撑开，
+   右上角工具栏展开时就会溢出屏幕右边被裁掉。 */
+.brand{flex:0 1 auto;overflow:hidden}
+/* 工具栏不收缩：展开时它自己变宽，其余部分（日期导航等）让位 */
+.toolbar{flex:0 0 auto;margin-left:auto}
+.topbar:hover,.topbar:focus-within{opacity:1}
+.brand{display:flex;align-items:center;gap:.75rem;min-width:0;height:2.75rem}
+.brand__title{
+  font-size:var(--md-sys-typescale-headline-large);font-weight:700;letter-spacing:-.01em;
+  white-space:nowrap;
+  /* ⚠️ 上下居中对齐的关键（2026-10-24 用户反馈"上下没有对齐"）：
+   *   h1 的默认行高是 normal（≈1.15~1.2 倍字号），行盒比文字本身高，
+   *   flex 的 align-items:center 对齐的是**行盒**，不是文字的视觉中心
+   *   ⇒ 加了 logo 之后，logo 的中线就和「作业贴」的字面中线差了一截。
+   *   ⇒ 统一：给标题一个**固定行高**，并让行盒高度 = .brand 的高度，
+   *      这样 logo / 标题 / 日期 / 徽章 全部落在同一条中线上。 */
+  line-height:2.75rem;
+  display:flex;align-items:center;
+}
+/* 标题左边的应用 logo（内嵌 PNG，由 app.js 注入 background-image）
+ * ⚠️ 用 PNG 而不是 SVG+文字：「贴」字的字形依赖系统字体，
+ *    SVG 里画出来位置会偏（2026-10-22 踩过）。 */
+.brand__logo{
+  flex:0 0 auto;
+  width:2.25rem;height:2.25rem;
+  border-radius:.55rem;
+  background-size:cover;background-position:center;
+  background-repeat:no-repeat;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+  opacity:.95;
+  /* 上下居中：跟标题行同高，靠 align-self 明确居中（不靠行高猜） */
+  align-self:center;
+}
+@media (max-width:900px){
+  .brand__logo{width:1.9rem;height:1.9rem;border-radius:.45rem}
+}
+.brand__title em{font-style:normal;color:var(--md-sys-color-primary)}
+/* 版本胶囊：小号、半透明、不抢标题的视觉重心
+ * ⚠️ .brand__title 现在是 display:flex ⇒ 里面的 inline-block 变成了 flex item，
+ *    `vertical-align:middle` 在 flex 布局里**完全失效**（这是不对齐的另一个来源）。
+ *    ⇒ 改用 align-self:center + 去掉 position/top 手动微调。 */
+.brand__ver{
+  display:inline-block;
+  margin-left:.4rem;
+  padding:.05rem .4rem;
+  border-radius:999px;
+  background:var(--md-sys-color-secondary-container);
+  color:var(--md-sys-color-on-secondary-container);
+  font-size:.55em;
+  font-weight:600;
+  letter-spacing:.02em;
+  line-height:1.5;
+  align-self:center;
+  cursor:default;
+  user-select:text;
+}
+.brand__date{
+  font-size:var(--md-sys-typescale-title-medium);font-weight:500;
+  color:var(--md-sys-color-on-surface-variant);white-space:nowrap;
+  /* 跟标题同一条中线（跟 .brand__title 的 line-height 一致） */
+  line-height:2.75rem;
+}
+.brand__badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:1.75rem;padding:0 .625rem;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-primary-container);color:var(--md-sys-color-on-primary-container);
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;letter-spacing:.04em;
+  white-space:nowrap;
+  align-self:center;
+}
+.spacer{flex:1 1 auto;min-width:0}
+
+.datenav{
+  display:flex;align-items:center;gap:.125rem;padding:.1875rem;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-surface-container);
+}
+.datenav__label{
+  min-width:6rem;height:2.125rem;padding:0 .875rem;border-radius:var(--md-sys-shape-full);
+  text-align:center;font-size:var(--md-sys-typescale-title-small);font-weight:600;white-space:nowrap;
+  color:var(--md-sys-color-on-surface);
+  transition:background-color var(--md-sys-motion-dur-short2) linear;
+}
+.datenav__label:hover{background:var(--state-layer)}
+
+/* ---------- 工具栏（可折叠）----------
+ * 整个工具栏是**一个**胶囊：左边是「工具」开关按钮，右边是展开出来的工具。
+ * 展开动画：从按钮右侧"长"出来（宽度 0 → 实际宽度 + 淡入 + 轻微右移），
+ * 看上去就是那根按钮被拉长了，而不是另起一个容器突然冒出来。
+ * 收起：60 秒没操作自动收回 —— 逻辑在 app.js 的 setupToolbarFold()。 */
+.toolbar{
+  display:flex;align-items:center;gap:0;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-surface-container);
+  border:1px solid var(--md-sys-color-outline-variant);
+  padding:.1875rem;
+  transition:box-shadow var(--md-sys-motion-dur-medium2) linear;
+}
+.toolbar.is-open{box-shadow:0 4px 14px rgba(0,0,0,.14)}
+/* 工具面板：紧跟在「工具」按钮**左边**，展开时从按钮处"长"出来。
+ *
+ * ★ 布局的关键：**开关按钮在最右边**，工具在它左边。
+ *   展开时工具向左生长 ⇒ 整组贴着屏幕右缘，永远不会溢出右边被裁掉
+ *   （之前开关在左边、工具向右长，右边那个「数据」按钮会被切掉一半）。
+ *
+ * ★ 动画的关键（踩了好几次才弄对）：
+ *   ① 不用 hidden 属性 —— 那是"啪"一下出现，没有动画。
+ *   ② 宽度用 **max-width: 0 → 100rem**：
+ *      - 面板是 flex item，width 会变成 flex-basis，**不产生过渡**；
+ *      - max-width 的两个值都是**长度**，浏览器能插值 ⇒ 真的会过渡；
+ *      - 上限 100rem 远大于内容 ⇒ 实际宽度就等于内容宽度（不留空档）。
+ *   ③ flex 必须是 **0 0 auto**（不收缩）：用 0 1 auto 时 flex 算法接管尺寸，
+ *      max-width 就不产生过渡。
+ *   ④ 宽度写 **width:max-content**（不是 auto）：auto 在 flex 里会被拉伸/压缩，
+ *      max-content 才是"内容有多宽就多宽"，不会多出空档。
+ *   ⑤ 动画完全由 CSS 负责，JS 只切 .is-open —— 不在 JS 里量宽度写 style，
+ *      那样要处理"起始值 0px、下一帧再改目标值"的时序，很难验证。
+ */
+.toolbar__panel{
+  display:flex;align-items:center;gap:.25rem;
+  width:max-content;
+  max-width:0;opacity:0;
+  flex:0 0 auto;
+  overflow:hidden;padding:0;margin:0;
+  /* 收起时微微偏右，展开时滑到左边 ⇒ 视觉上从开关按钮那端长出来 */
+  transform:translateX(.25rem);
+  transition:max-width 260ms cubic-bezier(.2,0,0,1),
+             opacity 180ms linear,
+             padding 260ms cubic-bezier(.2,0,0,1),
+             transform 260ms cubic-bezier(.2,0,0,1);
+}
+.toolbar.is-open .toolbar__panel{
+  max-width:100rem;        /* 实际宽度 = 内容自然宽 */
+  opacity:1;
+  padding-right:.25rem;    /* 面板在开关按钮左边，间距加在右边 */
+  transform:translateX(0);
+}
+.toolbar__panel>*{flex:none}
+.toolbtn--toggle{
+  /* 「工具」两个字不能被挤成竖排 —— 给个最小宽度 + 不换行 */
+  white-space:nowrap;min-width:4.25rem;justify-content:center;
+  position:relative;z-index:1;
+}
+.toolbtn--toggle.is-open{background:var(--state-layer)}
+.toolbar .sep{width:1px;height:1.5rem;background:var(--md-sys-color-outline-variant);margin:0 .375rem}
+.toolbtn{
+  display:inline-flex;align-items:center;gap:.375rem;height:2.25rem;padding:0 .75rem;
+  border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;
+  color:var(--md-sys-color-on-surface-variant);
+  transition:background-color var(--md-sys-motion-dur-short2) linear;
+  /* 文字不许被挤成竖排（一行一个字很难看） */
+  white-space:nowrap;flex:none;
+}
+.toolbtn:hover{background:var(--state-layer)}
+.toolbtn svg{width:1.125rem;height:1.125rem;fill:currentColor}
+
+/* ---------- 4.9 卡片背景图（Beta） ----------
+ * 每科可单独开关 + 选图案。图案是内联 SVG，主体锚在右下角，
+ * 正好落在卡片留白处，不压作业文字。
+ * 图案本体半透明（.5 左右），再叠一层底部渐变，保证文字对比度不降。 */
+.card{position:relative;overflow:hidden}
+/* 彩色 emoji：容器必须正方形（Twemoji 是 36x36 方图），
+   否则 svg 会被拉成非等比，看起来像被裁掉一块。 */
+.card__bg{
+  position:absolute;right:-.25rem;bottom:-.25rem;
+  /* 原来 10.5rem 太大，卡片上抢主体。用户要求"调小一点点"：
+     缩到 7.5rem（约 -30%），还是右下角锚定、还是压在留白处，
+     但不再把整张卡片糊住。 */
+  width:7.5rem;height:7.5rem;max-width:34%;max-height:46%;
+  pointer-events:none;z-index:0;
+  opacity:0;transition:opacity var(--md-sys-motion-dur-medium2) linear;
+}
+.card__bg svg{
+  width:100%;height:100%;display:block;
+  /* 完整 contain，绝不裁切；放大到 1.15 倍让细节更清楚 */
+  preserveAspectRatio="xMidYMid meet";
+
+}
+.card.has-bg .card__bg{opacity:.5}
+/* 正文抬到背景之上 */
+.card>.card__head,.card>.card__body,.card>.hw-empty{position:relative;z-index:1}
+/* 透明底抠图，不需要任何额外遮罩或渐隐 */
+
+/* Beta 胶囊：MD3 assist chip 的样子，小而克制 */
+.beta{
+  display:inline-flex;align-items:center;
+  height:1.375rem;padding:0 .4375rem;flex:none;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-tertiary-container);
+  color:var(--md-sys-color-on-tertiary-container);
+  font-size:var(--md-sys-typescale-label-small);
+  font-weight:700;letter-spacing:.04em;
+}
+
+/* 设置里的背景区块 */
+.set-bg{
+  display:flex;flex-direction:column;gap:.625rem;
+  margin-top:.25rem;padding:.75rem .875rem;
+  border:1px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container-low);
+}
+.set-bg__top{display:flex;align-items:center;gap:.625rem;flex-wrap:wrap}
+.set-bg__lb{
+  display:flex;align-items:center;gap:.375rem;flex:none;
+  font-size:var(--md-sys-typescale-label-large);font-weight:600;
+  color:var(--md-sys-color-on-surface);
+}
+.set-bg__picks{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(3rem,1fr));
+  gap:.5rem;width:100%;
+}
+.set-bg__pick{
+  position:relative;overflow:hidden;
+  width:100%;height:2.75rem;padding:0;
+  border:1.5px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-sm);
+  background:var(--md-sys-color-surface-container-high);
+  cursor:pointer;
+}
+.set-bg__pick svg,
+.set-bg__pick img{
+  position:absolute;inset:.1875rem;width:calc(100% - .375rem);height:calc(100% - .375rem);
+  object-fit:contain;
+}
+.set-bg__pick[aria-pressed="true"]{
+  border-color:var(--md-sys-color-primary);
+  box-shadow:0 0 0 1px var(--md-sys-color-primary);
+}
+.set-bg__pick.is-none{
+  display:grid;place-items:center;
+  font-size:var(--md-sys-typescale-label-small);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);
+}
+/* 开关：复用 MD3 switch */
+.switch{
+  position:relative;flex:none;
+  width:3rem;height:1.75rem;padding:0;
+  border:2px solid var(--md-sys-color-outline);
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-surface-container-highest);
+  cursor:pointer;transition:background-color var(--md-sys-motion-dur-short4) linear,
+             border-color var(--md-sys-motion-dur-short4) linear;
+}
+.switch::after{
+  content:"";position:absolute;top:50%;left:.1875rem;
+  width:1.25rem;height:1.25rem;margin-top:-.625rem;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-outline);
+  transition:left var(--md-sys-motion-dur-short4) var(--md-sys-motion-easing-standard),
+             width var(--md-sys-motion-dur-short4) var(--md-sys-motion-easing-standard),
+             height var(--md-sys-motion-dur-short4) var(--md-sys-motion-easing-standard),
+             background-color var(--md-sys-motion-dur-short4) linear;
+}
+.switch[aria-checked="true"]{
+  background:var(--md-sys-color-primary);border-color:var(--md-sys-color-primary);
+}
+.switch[aria-checked="true"]::after{
+  left:1.5rem;width:1.625rem;height:1.625rem;margin-top:-.8125rem;
+  background:var(--md-sys-color-on-primary);
+}
+.set-bg.is-off .set-bg__picks{opacity:.42;pointer-events:none}
+
+/* ---------- 5. 作业板 ----------
+ * 列平衡布局（用户认可的效果：3 个等高列，长卡片独占一列、短卡片两两凑一列）。
+ *
+ * 作业板 = 3 个并排的 flex 列；卡片由 JS 用 LPT 装箱（每次放进当前最矮的列）
+ * 分配到列里，列内 flex-grow = 该卡片的内容需求 → 内容多的自动更高、
+ * 内容少的只占一点点。既不出滚动条，也不留大片空白。
+ */
+.board{
+  display:flex;gap:var(--gutter);
+  align-items:stretch;
+  padding:0 var(--margin) calc(var(--margin) + 4rem);
+  min-height:0;overflow:hidden;
+}
+.board-col{
+  flex:1 1 0;min-width:0;min-height:0;
+  display:flex;flex-direction:column;gap:var(--gutter);
+}
+/* 空状态时用的一列"全宽区"：跨满整个 board（原来三列各占 1/3）。
+   其它两列会被清空（内容挪进这一列），这一列 flex-grow 拉满。 */
+.board-col--full{flex:1 1 100%;align-items:stretch}
+.board .card{flex:1 1 auto;min-width:0;min-height:0}
+
+/* ---------- 6. 科目卡片 ---------- */
+.card{
+  position:relative;display:flex;flex-direction:column;min-height:0;
+  --card-bg:var(--md-sys-color-surface-container-low);
+  border-radius:var(--md-sys-shape-lg);
+  background:var(--card-bg);
+  border:1px solid rgba(var(--accent),.24);
+  border-top:4px solid rgba(var(--accent),.9);
+  overflow:hidden;
+  transition:background-color var(--md-sys-motion-dur-medium2) linear;
+}
+.card:hover{--card-bg:var(--md-sys-color-surface-container)}
+.card--empty{opacity:.5}
+.card--empty:hover{opacity:.85}
+/* 内容超出时给卡片底边一点柔化。
+   高度只取 body 自己的下内边距（.875rem ≈ 21px @1920），
+   这样渐变几乎全落在留白里，只把硬切口柔化掉 ——
+   绝不能盖住能读的文字（试过 3.25rem/4.5rem，都把手写备注糊掉了，
+   看起来像内容丢了，比硬切更糟）。 */
+.card.has-more::after{
+  content:"";position:absolute;left:1px;right:1px;bottom:1px;height:1rem;
+  background:linear-gradient(to top, var(--card-bg) 34%, rgba(0,0,0,0));
+  pointer-events:none;
+}
+.card--hot{animation:cardHot 1.1s var(--md-sys-motion-emphasized-decelerate)}
+@keyframes cardHot{
+  0%{box-shadow:0 0 0 0 rgba(var(--accent),.75)}
+  100%{box-shadow:0 0 0 1.25rem rgba(var(--accent),0)}
+}
+.card__head{display:flex;align-items:center;gap:.75rem;padding:1rem .875rem .5rem 1.125rem;flex:none}
+.card__badge{
+  display:grid;place-items:center;flex:none;
+  width:2.5rem;height:2.5rem;border-radius:var(--md-sys-shape-md);
+  background:rgba(var(--accent),.22);color:rgb(var(--accent));
+  font-size:1.1875rem;font-weight:700;
+}
+.card__title{
+  flex:1 1 auto;min-width:0;
+  font-size:var(--md-sys-typescale-title-large);font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.card__count{
+  flex:none;min-width:1.75rem;height:1.75rem;padding:0 .5rem;
+  display:inline-grid;place-items:center;border-radius:var(--md-sys-shape-full);
+  background:rgba(var(--accent),.2);color:rgb(var(--accent));
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+}
+.card__edit{
+  position:relative;flex:none;display:inline-flex;align-items:center;gap:.25rem;
+  height:2.25rem;padding:0 .75rem;border-radius:var(--md-sys-shape-full);
+  color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-label-large);font-weight:600;
+  opacity:.6;
+  transition:opacity var(--md-sys-motion-dur-short4) linear,background-color var(--md-sys-motion-dur-short2) linear;
+}
+.card__edit:hover{background:var(--state-layer)}
+.card:hover .card__edit,.card__edit:focus-visible{opacity:1}
+.card__edit svg{width:1rem;height:1rem;fill:currentColor}
+.card__body{flex:1 1 auto;min-height:0;padding:0 1.125rem .875rem;overflow-y:auto;overscroll-behavior:contain}
+/* 卡片内更细一档：卡片空间紧，滚动条不该抢版面 */
+.card__body::-webkit-scrollbar{width:8px}
+
+.hw{display:flex;gap:.625rem;padding:.5rem 0;animation:hwIn var(--md-sys-motion-dur-medium2) var(--md-sys-motion-emphasized-decelerate)}
+@keyframes hwIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.hw+.hw{border-top:1px solid var(--md-sys-color-outline-variant)}
+.hw__mark{flex:none;width:.5rem;height:.5rem;margin-top:.55rem;border-radius:var(--md-sys-shape-full);background:rgb(var(--accent))}
+.hw__body{flex:1 1 auto;min-width:0}
+.hw__main{display:flex;align-items:baseline;flex-wrap:wrap;gap:.25rem .5rem}
+.hw__book{font-size:1.0625rem;font-weight:600}
+.hw__detail{
+  display:inline-flex;align-items:center;
+  padding:.0625rem .5rem;border-radius:var(--md-sys-shape-xs);
+  background:rgba(var(--accent),.2);color:rgb(var(--accent));
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  /* 内容可能是没有空格的超长串（网址、连写），必须允许任意位置断行，
+     否则这个大屏卡片会被撑出横向滚动条（实测能到 3788px vs 卡片 559px） */
+  max-width:100%;
+  word-break:break-word;overflow-wrap:anywhere;white-space:normal;
+}
+.hw__note{
+  margin-top:.1875rem;font-size:var(--md-sys-typescale-body-medium);
+  color:var(--md-sys-color-on-surface-variant);line-height:1.45;
+  word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.card__empty{
+  display:grid;place-items:center;height:100%;min-height:3rem;
+  color:var(--md-sys-color-on-surface-variant);opacity:.55;
+  font-size:var(--md-sys-typescale-body-medium);
+}
+
+/* ---------- 6.9 空状态首页（没有作业时） ----------
+ * 用户原话：「空状态的首页不是很好看」+「把作业贴的 logo 放上去，
+ * 然后再写个作业贴，然后搞一些渐变，就是这种简单的那种简约图片 logo，
+ * 再加名字，然后一些简单的渐变的背景，可以有那种流动的效果」
+ *
+ * 做法：
+ *   · 中间一个大 logo（应用图标）+ 「作业贴」三个字 + 一句引导
+ *   · 背后是**流动的渐变**（几个大色斑缓慢漂移），纯 CSS，不依赖图片
+ *   · 底下保留 9 科的小入口（老师可以直接点进去录），但做得紧凑淡雅
+ *
+ * ⚠️ 渐变用 linear/radial-gradient + CSS 动画 —— Chromium 93 全支持。
+ *   不用 filter:blur()（太吃 CPU，教室大屏可能卡），用大尺寸径向渐变做柔边。
+ */
+.empty-hero{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1rem;
+  padding:2.5rem 1.5rem 2.25rem;
+  border-radius:var(--md-sys-shape-large,1rem);
+  overflow:hidden;
+  isolation:isolate;
+  /* ⚠️ 顶部那条「本周作业」横幅在空状态下已经删掉了，
+     所以这里可以更大 —— 之前 min-height 压到 20rem 是为了给横幅让位。 */
+  min-height:min(26rem,52vh);
+  flex:0 0 auto;
+  text-align:center;
+}
+/* 流动渐变背景：几个大色斑缓慢漂移。
+   ⚠️ 用户反馈「渐变动画不是很明显，再做明显一些」⇒ 加大了三样东西：
+ *   ① 色斑**位移更大**（原来 ±3% → 现在 ±14%）
+ *   ② **速度更快**（原来 26s/34s → 现在 14s/19s）
+ *   ③ 色斑**更大更浓**（径向渐变的百分比和 alpha 都提了）
+ *   ⚠️ 不用 filter:blur() —— 太吃 CPU，教室大屏可能卡；柔边靠大尺寸径向渐变本身。 */
+.empty-hero__flow{
+  position:absolute;inset:-40%;z-index:-2;
+  background:
+    radial-gradient(34% 38% at 20% 26%, rgba(126,219,174,.55), transparent 68%),
+    radial-gradient(30% 34% at 80% 20%, rgba(126,159,255,.48), transparent 70%),
+    radial-gradient(38% 40% at 64% 84%, rgba(255,180,110,.42), transparent 70%),
+    radial-gradient(28% 32% at 10% 80%, rgba(214,140,255,.38), transparent 68%);
+  animation:heroFlow 14s ease-in-out infinite alternate;
+  will-change:transform;
+}
+.empty-hero__flow2{
+  position:absolute;inset:-40%;z-index:-1;
+  background:
+    radial-gradient(30% 34% at 84% 70%, rgba(255,120,160,.42), transparent 68%),
+    radial-gradient(34% 38% at 32% 86%, rgba(90,215,255,.40), transparent 70%),
+    radial-gradient(26% 30% at 46% 12%, rgba(255,235,140,.34), transparent 68%);
+  animation:heroFlow2 19s ease-in-out infinite alternate;
+  will-change:transform;
+  pointer-events:none;
+}
+/* 两层反向漂移 ⇒ 看起来是"流动"而不是"整体平移"
+ * ⚠️⚠️ 2026-10-24 用户反馈「会突然缩小」—— **根因就在这里**：
+ *   原来关键帧里带 scale(1) → scale(1.12) → scale(1.05)，
+ *   而且是 infinite + alternate ⇒ 色斑**一直不停地在放大/缩小**，
+ *   在渐变边缘看起来就像画面（甚至中间的 logo）在"突然缩小"。
+ *   ⇒ **去掉所有 scale，只留平移**。"流动"靠位移就够了，
+ *     而且位移不会让人误以为东西在变形。
+ */
+@keyframes heroFlow{
+  0%{transform:translate3d(-8%,-5%,0)}
+  50%{transform:translate3d(6%,4%,0)}
+  100%{transform:translate3d(9%,-4%,0)}
+}
+@keyframes heroFlow2{
+  0%{transform:translate3d(8%,5%,0)}
+  50%{transform:translate3d(-5%,-6%,0)}
+  100%{transform:translate3d(-9%,4%,0)}
+}
+.empty-hero__logo{
+  width:5.5rem;height:5.5rem;flex:none;
+  /* 圆角要跟原图标一致：原图 rx=58 / 256 ≈ 22.7% ⇒ 5.5rem × 22.7% ≈ 1.25rem。
+     半径给大了会把原图的圆角裁掉、给小了会切到透明角。 */
+  border-radius:1.25rem;
+  /* 原图标 PNG（构建时内嵌成 data URI）—— 像素级跟桌面图标一致 */
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  box-shadow:0 12px 32px rgba(0,0,0,.16);
+  animation:heroFloat 7s ease-in-out infinite;
+}
+/* 深色主题：logo 的深墨绿底会跟背景融在一起 ⇒ 加一圈浅描边把它托出来 */
+[data-theme="dark"] .empty-hero__logo{
+  box-shadow:0 12px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(232,241,234,.22);
+}
+@keyframes heroFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-.5rem)}
+}
+.empty-hero__title{
+  display:flex;align-items:baseline;gap:.15em;
+  font-size:var(--md-sys-typescale-headline-large);
+  font-weight:700;letter-spacing:.08em;
+  color:var(--md-sys-color-on-surface);
+  text-shadow:0 1px 12px rgba(255,255,255,.28);
+}
+[data-theme="dark"] .empty-hero__title{text-shadow:0 2px 16px rgba(0,0,0,.45)}
+.empty-hero__title em{font-style:normal;color:var(--md-sys-color-primary)}
+.empty-hero__sub{
+  font-size:var(--md-sys-typescale-title-medium);
+  color:var(--md-sys-color-on-surface-variant);
+  max-width:32rem;line-height:1.6;
+}
+.empty-hero__hint{
+  display:inline-flex;align-items:center;gap:.45rem;
+  padding:.4rem 1rem;
+  border-radius:999px;
+  background:var(--md-sys-color-surface-container-high,var(--md-sys-color-surface-container));
+  border:1px solid var(--md-sys-color-outline-variant);
+  font-size:var(--md-sys-typescale-body-medium);
+  color:var(--md-sys-color-on-surface-variant);
+}
+/* 下面的 9 科小入口 */
+.empty-picks{
+  display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:.5rem;
+  margin-top:.75rem;
+  flex:0 0 auto;
+}
+.empty-pick{
+  display:flex;flex-direction:column;align-items:center;gap:.35rem;
+  padding:.75rem .35rem;
+  border-radius:var(--md-sys-shape-large,1rem);
+  background:var(--md-sys-color-surface-container);
+  border:1px solid var(--md-sys-color-outline-variant);
+  cursor:pointer;
+  transition:transform var(--md-sys-motion-dur-short2) linear,
+             background-color var(--md-sys-motion-dur-short2) linear;
+}
+.empty-pick:hover{transform:translateY(-2px);background:var(--state-layer)}
+.empty-pick__badge{
+  display:grid;place-items:center;
+  width:2.1rem;height:2.1rem;border-radius:.7rem;
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+}
+.empty-pick__name{
+  font-size:var(--md-sys-typescale-label-medium);
+  color:var(--md-sys-color-on-surface-variant);
+}
+@media (max-width:1199px){
+  .empty-picks{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media (max-width:839px){
+  .empty-picks{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* ---------- 6.5 提交时效标记 ----------
+ * 目标：既"直接"（3 米外一眼看出哪条今晚要交），又好看（不破坏卡片整体质感）。
+ *
+ * 方案：左侧一条**实色书签条**（inset 阴影画，稳、不依赖层叠上下文）
+ *      + 向右侧极淡的渐变底色（越往右越透明，像被轻轻扫过）
+ *      + 时效做成**实心胶囊**，是整行里最跳的元素。
+ * 比"整条涂满"更克制，也比只挂个小标签更醒目。
+ * 颜色越急越暖：今天=红，晚自习=橙，明天=金，后天起=青绿，自填=天蓝。
+ */
+/* 注意选择器写成 .board .hw--due（而不是 .hw--due）：
+   后面"自动伸缩"那段里有一条 .hw{padding:...0}，与 .hw 同优先级且更靠后，
+   会把这里的 padding-left 覆盖掉 —— 只剩 margin-left 生效，
+   于是带时效的行整行左移、圆点跟别的行错位（实测偏 17px）。
+   提高一级优先级就与顺序无关了。 */
+.board .hw--due{
+  position:relative;
+  border-radius:0 8px 8px 0;
+  /* 左侧色条 + 横向淡渐变 */
+  box-shadow:inset 3px 0 0 0 rgb(var(--due-rgb));
+  background-image:linear-gradient(90deg,
+    rgba(var(--due-rgb),.14) 0%,
+    rgba(var(--due-rgb),.07) 45%,
+    rgba(var(--due-rgb),.00) 85%);
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+  padding-left:.7rem;padding-right:.5rem;
+  margin-left:-.7rem;margin-right:-.5rem;
+}
+/* 左侧圆点也换成时效色，跟书签条连成一体 */
+.board .hw--due .hw__mark{background:rgb(var(--due-rgb))}
+
+.hw--due[data-urgency="today"]   {--due-rgb:255,138,128}
+.hw--due[data-urgency="night"]   {--due-rgb:255,179,71}
+.hw--due[data-urgency="tomorrow"]{--due-rgb:255,196,87}
+.hw--due[data-urgency="later"]   {--due-rgb:120,212,160}
+.hw--due[data-urgency="custom"]  {--due-rgb:165,205,219}
+
+/* 时效胶囊：实心、深色字，是整行最跳的元素 */
+.hw__due{
+  display:inline-flex;align-items:center;
+  flex:none;margin-left:.4rem;
+  padding:.0625rem .5rem;
+  border-radius:var(--md-sys-shape-full);
+  background:rgb(var(--due-rgb));
+  color:rgb(16,20,16);
+  font-size:calc(var(--md-sys-typescale-label-medium) * var(--fit));
+  font-weight:800;letter-spacing:.02em;white-space:nowrap;
+}
+[data-theme="light"] .hw--due[data-urgency="today"]   {--due-rgb:183,38,28}
+[data-theme="light"] .hw--due[data-urgency="night"]   {--due-rgb:179,98,0}
+[data-theme="light"] .hw--due[data-urgency="tomorrow"]{--due-rgb:146,64,14}
+[data-theme="light"] .hw--due[data-urgency="later"]   {--due-rgb:27,94,32}
+[data-theme="light"] .hw--due[data-urgency="custom"]  {--due-rgb:10,53,65}
+[data-theme="light"] .board .hw--due{
+  background-image:linear-gradient(90deg,
+    rgba(var(--due-rgb),.10) 0%,
+    rgba(var(--due-rgb),.05) 45%,
+    rgba(var(--due-rgb),.00) 85%);
+}
+[data-theme="light"] .hw__due{color:rgb(255,255,255)}
+
+/* ---------- 6.6 note + due: reuse the app's own chip system ----------
+ * Design rules after review feedback:
+ *   - no extra dark surface behind the blocks (that was the "dirty" look)
+ *   - no check marks on every option; the existing .chip already shows
+ *     selection via fill + state layer, that is enough
+ *   - everything is .chip, exactly like the book/page pickers
+ */
+
+/* section blocks: plain, separated by a rule only */
+.step--note,.step--due{
+  display:flex;flex-direction:column;min-width:0;
+  padding-top:.25rem;border:0;background:none;
+}
+@media (max-width:1199px){.step--due{padding-top:.75rem}}
+
+/* row of chips */
+.due-row{display:flex;flex-wrap:wrap;gap:.375rem;align-items:center;min-width:0}
+/* 页面其它地方（作业本、页码）需要选中对勾；这里选中态用底色就够，
+   满屏对勾反而乱 —— 用户明确要求去掉 */
+#dueDayChips .chip[aria-pressed="true"]::before,
+#duePeriodChips .chip[aria-pressed="true"]::before{display:none}
+#dueDayChips .chip[aria-pressed="true"],
+#duePeriodChips .chip[aria-pressed="true"]{padding-left:.625rem}
+.due-row + .due-row{margin-top:.5rem}
+.due-row__lb{
+  flex:none;font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);margin-right:.125rem;
+}
+
+/* clause list: plain rows, no container colour */
+.clauses{display:flex;flex-direction:column;gap:.375rem;margin-top:.25rem;min-width:0}
+.clause{display:flex;align-items:center;gap:.375rem;min-width:0}
+.clause__no{
+  flex:none;width:1.25rem;height:1.25rem;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--md-sys-color-secondary-container);
+  color:var(--md-sys-color-on-secondary-container);
+  font-size:var(--md-sys-typescale-label-small);font-weight:700;
+}
+.clause__sum{
+  flex:1 1 auto;min-width:0;
+  font-size:var(--md-sys-typescale-body-medium);
+  color:var(--md-sys-color-on-surface);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.note-empty{
+  margin-top:.25rem;
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);line-height:1.5;
+}
+
+/* MD3 text button */
+.textbtn{
+  margin-left:auto;flex:none;
+  display:inline-flex;align-items:center;gap:.25rem;
+  height:1.875rem;padding:0 .625rem;
+  border:1px solid transparent;border-radius:var(--md-sys-shape-sm);
+  background:transparent;color:var(--md-sys-color-primary);
+  font-size:var(--md-sys-typescale-label-large);font-weight:600;cursor:pointer;
+}
+.textbtn:hover{background:var(--md-sys-color-surface-container-high)}
+.textbtn:active{background:var(--md-sys-color-surface-container-highest)}
+
+/* outlined field (MD3 corner-extra-small = 4px) */
+.md-field{
+  display:flex;align-items:center;
+  min-height:2.75rem;padding:0 .875rem;margin-top:.5rem;
+  border:1px solid var(--md-sys-color-outline);
+  border-radius:var(--md-sys-shape-xs);
+  transition:border-color var(--md-sys-motion-dur-short4) linear,
+             box-shadow var(--md-sys-motion-dur-short4) linear;
+}
+.md-field:focus-within{border-color:var(--md-sys-color-primary);box-shadow:inset 0 0 0 1px var(--md-sys-color-primary)}
+.md-field input{
+  flex:1 1 auto;min-width:0;width:100%;
+  border:0;background:transparent;outline:none;
+  color:var(--md-sys-color-on-surface);
+  font:inherit;font-size:var(--md-sys-typescale-body-large);padding:.5rem 0;
+}
+.md-field input::placeholder{color:var(--md-sys-color-on-surface-variant);opacity:.75}
+
+/* dropdown trigger: looks like a chip, so the dialog stays consistent */
+.md-select{
+  position:relative;overflow:hidden;
+  display:inline-flex;align-items:center;gap:.375rem;
+  height:2.25rem;padding:0 .625rem;flex:0 1 auto;min-width:0;max-width:100%;
+  border:1px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-sm);
+  background:transparent;
+  color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;
+  cursor:pointer;
+}
+.md-select::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;
+  background:currentColor;opacity:0;pointer-events:none;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;
+}
+.md-select:hover::after{opacity:var(--md-sys-state-hover)}
+.md-select:active::after{opacity:var(--md-sys-state-pressed)}
+.md-select:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:2px}
+.md-select__txt{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-select__caret,.md-select .caret{
+  position:relative;flex:none;
+  width:1rem !important;height:1rem !important;
+  min-width:0;min-height:0;
+  display:block;fill:currentColor;opacity:.75;
+}
+.md-select.is-placeholder .md-select__txt{color:var(--md-sys-color-on-surface-variant)}
+.md-select--grow{flex:1 1 auto;min-width:0}
+.md-select--fill{flex:1 1 8rem}
+
+/* MD3 menu: 4px radius, 48px rows, no tick marks */
+.md-menu{
+  position:fixed;z-index:90;
+  min-width:9rem;max-width:min(22rem,calc(100vw - 1.5rem));
+  width:max-content;
+  padding:.25rem;
+  border-radius:var(--md-sys-shape-xs);
+  background:var(--md-sys-color-surface-container-high);
+  box-shadow:var(--md-sys-elevation-2);
+  /* 永远不超出窗口；题号菜单本身内容不滚动，靠分页保证不超 */
+  max-height:calc(100vh - 1.5rem);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+.md-menu__item{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;gap:.75rem;
+  width:100%;height:3rem;padding:0 .875rem;
+  border:0;border-radius:var(--md-sys-shape-xs);
+  background:transparent;color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-body-large);text-align:left;cursor:pointer;
+  white-space:nowrap;
+}
+.md-menu__item::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;
+  background:currentColor;opacity:0;pointer-events:none;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;
+}
+.md-menu__item:hover::after{opacity:var(--md-sys-state-hover)}
+.md-menu__item:active::after{opacity:var(--md-sys-state-pressed)}
+.md-menu__item[aria-selected="true"]{
+  background:var(--md-sys-color-secondary-container);
+  color:var(--md-sys-color-on-secondary-container);font-weight:600;
+}
+
+/* number picker: always visible, paged, never scrolls */
+.picknum{padding:.25rem}
+.picknum__quick,
+.picknum__grid{
+  display:grid;grid-template-columns:repeat(8,2.25rem);gap:.125rem;justify-content:start;
+}
+.picknum__quick{padding:.125rem .125rem .375rem}
+.picknum__cell{
+  height:2.25rem;border:1px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-sm);
+  background:transparent;color:var(--md-sys-color-on-surface);
+  font-size:var(--md-sys-typescale-label-large);font-weight:500;cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+.picknum__cell:hover{background:var(--md-sys-color-surface-container-highest)}
+.picknum__cell:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:1px}
+.picknum__cell[aria-selected="true"]{
+  background:var(--md-sys-color-secondary-container);
+  border-color:transparent;color:var(--md-sys-color-on-secondary-container);font-weight:700;
+}
+.picknum__foot{
+  display:flex;align-items:center;gap:.25rem;padding:.5rem .125rem .125rem;
+}
+.picknum__page{
+  flex:1 1 auto;text-align:center;
+  font-size:var(--md-sys-typescale-label-medium);
+  color:var(--md-sys-color-on-surface-variant);
+  font-variant-numeric:tabular-nums;
+}
+.picknum__nav{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:2.25rem;height:2.25rem;flex:none;
+  border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--md-sys-shape-sm);
+  background:transparent;color:var(--md-sys-color-on-surface-variant);cursor:pointer;
+}
+.picknum__nav:hover:not(:disabled){background:var(--md-sys-color-surface-container-highest)}
+.picknum__nav:disabled{opacity:.35;cursor:default}
+.picknum__nav svg{width:1.125rem;height:1.125rem;display:block;fill:currentColor}
+.picknum__done{
+  flex:none;height:2.25rem;padding:0 .875rem;
+  border:0;border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);
+  font-size:var(--md-sys-typescale-label-large);font-weight:600;cursor:pointer;
+}
+.picknum__done:hover{box-shadow:var(--md-sys-elevation-1)}
+
+/* ---------- 7. FAB ---------- */
+.fab{
+  position:fixed;right:calc(var(--margin) + .5rem);bottom:calc(var(--margin) + .25rem);z-index:30;
+  display:inline-flex;align-items:center;gap:.75rem;
+  height:4rem;padding:0 1.75rem 0 1.5rem;
+  border-radius:var(--md-sys-shape-lg);
+  background:var(--md-sys-color-primary-container);color:var(--md-sys-color-on-primary-container);
+  box-shadow:var(--md-sys-elevation-3);
+  font-size:1.0625rem;font-weight:700;letter-spacing:.01em;
+  transition:box-shadow var(--md-sys-motion-dur-short4) linear,transform var(--md-sys-motion-dur-short4) linear;
+}
+.fab:hover{box-shadow:var(--md-sys-elevation-4)}
+.fab:active{transform:scale(.97)}
+.fab svg{width:1.75rem;height:1.75rem;fill:currentColor}
+
+/* ---------- 8. 遮罩 + 对话框 ---------- */
+.scrim{
+  position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;
+  display:grid;place-items:center;padding:var(--margin);
+  background:var(--md-sys-color-scrim);
+  opacity:0;visibility:hidden;
+  transition:opacity var(--md-sys-motion-dur-medium2) linear,
+             visibility 0s linear var(--md-sys-motion-dur-medium2);
+}
+.scrim.is-open{opacity:1;visibility:visible;transition-delay:0s}
+/* 作业弹窗是「记录」界面，要尽量少滚动 —— 上下留白收紧，把高度让给内容 */
+#scrimHw{padding:1rem var(--margin)}
+.dialog{
+  display:flex;flex-direction:column;min-height:0;width:100%;
+  border-radius:var(--md-sys-shape-xl);
+  background:var(--md-sys-color-surface-container-high);
+  box-shadow:var(--md-sys-elevation-3);
+  transform:scale(.94);opacity:0;
+  transition:transform var(--md-sys-motion-dur-medium4) var(--md-sys-motion-emphasized),
+             opacity var(--md-sys-motion-dur-short4) linear;
+}
+.scrim.is-open .dialog{transform:none;opacity:1}
+.dialog__head{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem .75rem 1.5rem;flex:none}
+.dialog__title{flex:1 1 auto;min-width:0;font-size:var(--md-sys-typescale-headline-small);font-weight:600}
+.dialog__sub{font-size:var(--md-sys-typescale-body-medium);color:var(--md-sys-color-on-surface-variant);font-weight:400;margin-top:.125rem}
+.dialog__foot{display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem 1rem;flex:none}
+
+.dialog--subject{max-width:52rem}
+.subject-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.875rem;padding:.5rem 1.75rem 1.25rem}
+.subject-tile{
+  position:relative;display:flex;align-items:center;gap:.875rem;
+  padding:.875rem 1rem;min-height:4.25rem;
+  border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container-highest);
+  border:1px solid transparent;
+  text-align:left;
+  transition:background-color var(--md-sys-motion-dur-short4) linear,border-color var(--md-sys-motion-dur-short4) linear,transform var(--md-sys-motion-dur-short2) linear;
+}
+.subject-tile:hover{
+  border-color:rgba(var(--accent),.65);
+  background:rgba(var(--accent),.14);
+}
+.subject-tile:active{transform:scale(.985)}
+.subject-tile__badge{
+  display:grid;place-items:center;flex:none;
+  width:2.75rem;height:2.75rem;border-radius:var(--md-sys-shape-sm);
+  background:rgba(var(--accent),.22);color:rgb(var(--accent));
+  font-size:1.25rem;font-weight:700;
+}
+.subject-tile__text{flex:1 1 auto;min-width:0}
+.subject-tile__name{font-size:var(--md-sys-typescale-title-medium);font-weight:600}
+.subject-tile__meta{font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subject-tile__dot{position:absolute;top:.625rem;right:.625rem;width:.5rem;height:.5rem;border-radius:var(--md-sys-shape-full);background:rgb(var(--accent))}
+
+/* 弹窗高度用 100%（= scrim 内容框，已扣掉 padding），
+   不要写 94dvh —— 那样会比可用高度还大，居中后页脚被切掉一半。 */
+.dialog--hw{max-width:80rem;height:min(52rem,100%);max-height:100%}
+.hw-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(19rem,.9fr);flex:1 1 auto;min-height:0}
+.hw-left{display:flex;flex-direction:column;min-height:0;padding:0 1.5rem 0 1.75rem}
+.hw-right{display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--md-sys-color-outline-variant);padding:0 1.25rem 0 1.5rem}
+.hw-right__head{display:flex;align-items:center;gap:.5rem;padding:1rem 0 .5rem;flex:none}
+.hw-right__head h3{font-size:var(--md-sys-typescale-title-medium);font-weight:700}
+.hw-right__list{flex:1 1 auto;min-height:0;overflow-y:auto;padding-bottom:1rem}
+.hw-panel{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 0 .5rem}
+/* 快捷面板：① 选作业本占一行，② 和 ③ 并排 —— 用横向空间换纵向，
+   这样页码键盘和备注都能一屏看到，不用滚动。
+   ⚠️ 这里不能用 min-height:100%：面板在滚动容器里，百分比最小高度会解析成
+      "内容高度"而撑破容器（实测 428px 的容器被撑到 670px），反而制造滚动条。 */
+.hw-panel>[data-panel="quick"]{display:flex;flex-direction:column;gap:0}
+/* 备注 + 时效现在是向导第 4 步「补充信息（选填）」里的两块，上下排。
+   原来那套 .quick-grid 两列网格（note/due 两个 grid-area）随第 4 步改造一起删掉了。 */
+.step--note,.step--due{padding-top:.5rem}
+.hw-tabs{display:flex;padding:.75rem 0 .5rem;flex:none}
+
+/* 记录作业这个动作要"一眼看全、不用滚动"，所以下面这些间距都压得比较紧。
+   注意：缩内边距无害，缩字号才致命 —— 只压间距，不压字号。 */
+.step{padding:.5rem 0}
+.step--books{padding:.375rem 0 .625rem;border-bottom:1px solid var(--md-sys-color-outline-variant)}
+.step__label{
+  display:flex;align-items:baseline;gap:.5rem;margin-bottom:.375rem;
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);letter-spacing:.02em;
+}
+.step__label .hint{font-weight:400;opacity:.72;font-size:var(--md-sys-typescale-body-small)}
+.chips{display:flex;flex-wrap:wrap;gap:.375rem}
+.chips+.chips{margin-top:.375rem}
+/* 全站不再出现"横向滑动的一条"。历史遗留的 class 一律退化成换行，
+   长的列表一律改用 MD3 下拉菜单（见 .md-select / .md-menu）。 */
+.chips--scroll{flex-wrap:wrap;overflow:visible;padding-bottom:0}
+/* 备注词比页码少打一次字就够用，压扁一点换垂直空间 */
+#noteTypeChips .chip,#noteNumQuick .chip{height:1.75rem;font-size:var(--md-sys-typescale-label-medium)}
+/* 类型与常用题号都铺成网格，一屏看全 —— 不再是横向滚动的长条
+   （用户原话："不能列出那么多……让用户划来划去"）*/
+#noteTypeChips,#noteNumQuick{display:flex;flex-wrap:wrap;gap:.375rem;margin-top:.5rem}
+#noteTypeChips .chip,#noteNumQuick .chip{
+  flex:0 0 auto;min-width:3.5rem;white-space:nowrap;
+}
+#noteTypeChips .chip,#noteNumQuick .chip{
+  width:100%;justify-content:center;padding:0 .25rem;overflow:hidden;
+}
+/* 类型选中态：实心，一眼看出当前在补哪一类备注 */
+#noteTypeChips .chip[aria-pressed="true"]{
+  background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);
+  border-color:transparent;font-weight:700;
+}
+/* 「第 __ 题」：只有选了需要题号的类型才出现 */
+.notenum{
+  display:flex;align-items:center;gap:.375rem;margin-top:.5rem;
+}
+.notenum__t{
+  flex:none;font-size:var(--md-sys-typescale-label-large);
+  font-weight:700;color:var(--md-sys-color-on-surface-variant);
+}
+.notenum__i{
+  width:6.5rem;height:2.25rem;text-align:center;
+  font-weight:700;font-size:var(--md-sys-typescale-body-large);
+}
+
+.page-display{
+  display:flex;align-items:center;gap:.5rem;
+  height:3.25rem;margin-bottom:.5rem;padding:0 1rem;
+  border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container-highest);
+  border:1px solid var(--md-sys-color-outline-variant);
+  font-size:1.75rem;font-weight:700;letter-spacing:.02em;
+  color:var(--md-sys-color-on-surface);
+  overflow:hidden;
+}
+.page-display__p{color:rgb(var(--accent));font-size:1.375rem;font-weight:700}
+.page-display__val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page-display__ph{color:var(--md-sys-color-on-surface-variant);opacity:.45;font-weight:500;font-size:1rem}
+.page-display__caret{display:inline-block;width:2px;height:1.875rem;background:rgb(var(--accent));animation:blink 1.1s steps(1) infinite}
+@keyframes blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+
+.keypad{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.375rem}
+.keypad button{
+  position:relative;display:grid;place-items:center;height:2.25rem;
+  border-radius:var(--md-sys-shape-sm);
+  background:var(--md-sys-color-surface-container-highest);
+  font-size:1.1875rem;font-weight:600;
+  transition:transform var(--md-sys-motion-dur-short2) linear;
+}
+.keypad button::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;
+  background:currentColor;opacity:0;transition:opacity var(--md-sys-motion-dur-short2) linear;pointer-events:none;
+}
+.keypad button:hover::after{opacity:var(--md-sys-state-hover)}
+.keypad button:active{transform:scale(.95)}
+.keypad button svg{width:1.375rem;height:1.375rem;fill:currentColor}
+.keypad button.is-fn{font-size:1rem;color:rgb(var(--accent))}
+.keypad button.is-warn{color:var(--md-sys-color-error)}
+
+.lesson-wrap{
+  border:1px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--md-sys-shape-md);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.lesson-list{
+  overflow-y:auto;padding:.375rem;overscroll-behavior:contain;
+  /* 高度跟着视口走：小屏少占、大屏多占，避免把下面的工具区顶出去 */
+  max-height:min(16rem,32vh);
+}
+.lesson-group__head{
+  position:-webkit-sticky;position:sticky;top:0;z-index:2;
+  padding:.5rem .625rem;margin:.125rem 0;
+  background:var(--md-sys-color-surface-container-high);
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);
+  border-radius:var(--md-sys-shape-xs);
+}
+.lesson-row{
+  position:relative;display:flex;align-items:baseline;gap:.625rem;width:100%;
+  padding:.5rem .625rem;border-radius:var(--md-sys-shape-xs);
+  text-align:left;
+  transition:background-color var(--md-sys-motion-dur-short2) linear;
+}
+.lesson-row:hover{background:rgba(var(--accent),.12)}
+.lesson-row[aria-pressed="true"]{background:rgba(var(--accent),.22)}
+.lesson-row[aria-pressed="true"] .lesson-row__no{color:rgb(var(--accent))}
+.lesson-row__no{
+  flex:none;min-width:4.25rem;
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);
+}
+.lesson-row__title{flex:1 1 auto;min-width:0;font-size:var(--md-sys-typescale-body-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* margin-left:auto 保证勾永远贴右边缘。
+   不能只依赖 .lesson-row__title 的 flex:1 撑开 —— 政治/历史课时没有标题，
+   那个元素不存在，勾就会跑到课号旁边（用户报的 bug）。 */
+  .lesson-row__tick{flex:none;display:inline-flex;opacity:0;color:rgb(var(--accent));margin-left:auto}
+.lesson-row__tick svg{width:1.125rem;height:1.125rem;fill:currentColor}
+.lesson-row[aria-pressed="true"] .lesson-row__tick{opacity:1}
+
+/* 弹窗内滚动区：比全局再细一档，弹窗本体已经有边距了 */
+.lesson-list::-webkit-scrollbar,
+.hw-panel::-webkit-scrollbar,
+.hw-right__list::-webkit-scrollbar,
+.set-body::-webkit-scrollbar,
+.set-nav::-webkit-scrollbar,
+.ov-body::-webkit-scrollbar{width:8px}
+.lesson-list::-webkit-scrollbar-thumb,
+.hw-panel::-webkit-scrollbar-thumb,
+.hw-right__list::-webkit-scrollbar-thumb,
+.set-body::-webkit-scrollbar-thumb,
+.set-nav::-webkit-scrollbar-thumb,
+
+.lesson-empty{padding:1rem;text-align:center;color:var(--md-sys-color-on-surface-variant);font-size:var(--md-sys-typescale-body-medium);line-height:1.5}
+
+/* 课时区下方的两个工具输入框：并排一行，省高度 */
+.lessons-tools{padding-top:.5rem}
+.tools-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:.75rem}
+.tools-cell{min-width:0}
+.tools-cell .textfield{height:2.5rem;font-size:var(--md-sys-typescale-body-medium)}
+.tools-cell .step__label{margin-bottom:.25rem;font-size:var(--md-sys-typescale-label-medium)}
+
+.hwrow{
+  position:relative;display:flex;align-items:flex-start;gap:.375rem;
+  padding:.625rem .5rem .625rem .625rem;border-radius:var(--md-sys-shape-sm);
+  border:1px solid transparent;
+  transition:background-color var(--md-sys-motion-dur-short2) linear,border-color var(--md-sys-motion-dur-short2) linear;
+}
+.hwrow:hover{background:rgba(var(--accent),.1)}
+.hwrow.is-editing{border-color:var(--md-sys-color-primary);background:rgba(var(--accent),.16)}
+.hwrow+.hwrow{border-top:1px solid var(--md-sys-color-outline-variant)}
+.hwrow__text{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .375rem}
+.hwrow__book{font-size:var(--md-sys-typescale-body-large);font-weight:600}
+.hwrow__detail{
+  padding:.0625rem .375rem;border-radius:var(--md-sys-shape-xs);
+  background:rgba(var(--accent),.22);color:rgb(var(--accent));
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+  /* 同样的道理：详情可能是超长文本（粘贴进来的整段），必须能任意位置断行，
+     否则会把弹窗右侧列表撑出横向滚动 */
+  word-break:break-word;overflow-wrap:anywhere;
+}
+.hwrow__note{
+  flex-basis:100%;
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+  /* 必须能断词：超长备注（比如几千字连写、或没有空格的 300 字符长串）
+     只靠 word-break 不够，还得允许任意位置换行，否则会把弹窗撑出横向滚动 */
+  word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;
+}
+/* 自动伸缩：所有卡片共用一个 --fit（写在 :root 上），
+   保证"每一个作业的字体都一样大"。绝不做按卡片单独缩放。 */
+:root{--fit:1}
+.card__title{font-size:calc(var(--md-sys-typescale-title-large) * var(--fit))}
+.card__badge{
+  width:calc(2.5rem * var(--fit));height:calc(2.5rem * var(--fit));
+  font-size:calc(1.1875rem * var(--fit));
+}
+.card__count{height:calc(1.75rem * var(--fit));font-size:calc(var(--md-sys-typescale-label-medium) * var(--fit))}
+.card__edit{height:calc(2.25rem * var(--fit));font-size:calc(var(--md-sys-typescale-label-large) * var(--fit))}
+.card__head{padding:calc(1rem * var(--fit)) calc(.875rem * var(--fit)) calc(.5rem * var(--fit)) calc(1.125rem * var(--fit))}
+.card__body{padding:0 calc(1.125rem * var(--fit)) calc(.875rem * var(--fit))}
+.hw{padding:calc(.5rem * var(--fit)) 0;gap:calc(.625rem * var(--fit))}
+.hw__book{font-size:calc(1.0625rem * var(--fit))}
+.hw__detail{font-size:calc(var(--md-sys-typescale-label-large) * var(--fit))}
+.hw__note{font-size:calc(var(--md-sys-typescale-body-medium) * var(--fit));margin-top:calc(.1875rem * var(--fit))}
+.hw__mark{width:calc(.5rem * var(--fit));height:calc(.5rem * var(--fit));margin-top:calc(.55rem * var(--fit))}
+
+/* 行内操作按钮：只在"有悬停能力"的设备上显示，并且隐藏时必须真正不可点。
+   opacity:0 不脱离命中测试 —— 触摸一体机上会变成"点空白处静默删掉一条作业"。
+   所以隐藏态加 pointer-events:none，并用 @media (hover:none) 在触摸设备上常显。 */
+.hwrow__acts{
+  display:flex;gap:.0625rem;flex:none;
+  opacity:0;pointer-events:none;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;
+}
+@media (hover:hover){
+  .hwrow:hover .hwrow__acts,
+  .hwrow:focus-within .hwrow__acts{opacity:1;pointer-events:auto}
+}
+@media (hover:none){
+  .hwrow__acts{opacity:1;pointer-events:auto}
+}
+.hw-empty{
+  display:grid;place-items:center;gap:.5rem;height:100%;min-height:8rem;padding:1.5rem;
+  text-align:center;color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-body-medium);line-height:1.6;
+}
+
+/* ---------- 9. Snackbar ---------- */
+.snackbar{
+  position:fixed;left:var(--margin);bottom:calc(var(--margin) + .5rem);z-index:80;
+  display:flex;align-items:center;gap:1.25rem;max-width:44rem;
+  min-height:3.25rem;padding:.75rem 1.5rem;
+  border-radius:var(--md-sys-shape-xs);
+  background:var(--md-sys-color-inverse-surface);color:var(--md-sys-color-inverse-on-surface);
+  box-shadow:var(--md-sys-elevation-3);
+  font-size:var(--md-sys-typescale-body-medium);
+  transform:translateY(1.5rem);opacity:0;pointer-events:none;
+  transition:transform var(--md-sys-motion-dur-medium2) var(--md-sys-motion-emphasized),opacity var(--md-sys-motion-dur-short4) linear;
+}
+.snackbar.is-open{transform:translateY(0);opacity:1;pointer-events:auto}
+.snackbar button{color:var(--md-sys-color-inverse-primary);font-weight:700;font-size:var(--md-sys-typescale-label-large);padding:.25rem .5rem;border-radius:var(--md-sys-shape-xs);flex:none}
+
+/* 存储失败告警条（写不进 localStorage 时常驻显示，直到问题解决） */
+.store-warn{
+  position:fixed;left:var(--margin);top:4.75rem;z-index:82;
+  display:flex;align-items:center;gap:.75rem;max-width:42rem;
+  padding:.75rem 1.25rem;border-radius:var(--md-sys-shape-sm);
+  background:var(--md-sys-color-error-container);color:var(--md-sys-color-on-error-container);
+  box-shadow:var(--md-sys-elevation-2);
+  font-size:var(--md-sys-typescale-body-medium);font-weight:500;
+}
+.store-warn svg{width:1.25rem;height:1.25rem;fill:currentColor;flex:none}
+
+/* ---------- 10. 日历 ---------- */
+.cal{display:flex;flex-direction:column;gap:.75rem;padding:.25rem 1.75rem 1.25rem;min-width:22rem}
+.cal__head{display:flex;align-items:center;gap:.5rem}
+.cal__title{flex:1 1 auto;text-align:center;font-size:var(--md-sys-typescale-title-medium);font-weight:700}
+.cal__grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.25rem}
+.cal__dow{
+  text-align:center;padding:.25rem 0;
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);opacity:.7;
+}
+.cal__day{
+  position:relative;display:grid;place-items:center;
+  aspect-ratio:1 / 1;border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-body-medium);font-weight:600;
+  color:var(--md-sys-color-on-surface);
+  transition:background-color var(--md-sys-motion-dur-short2) linear,color var(--md-sys-motion-dur-short2) linear;
+}
+.cal__day:hover{background:var(--state-layer)}
+.cal__day.is-blank{visibility:hidden;pointer-events:none}
+.cal__day.is-today{
+  border:1.5px solid var(--md-sys-color-primary);
+  color:var(--md-sys-color-primary);
+}
+.cal__day.is-selected{
+  background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);
+  border-color:transparent;
+}
+.cal__day.has-hw::after{
+  content:"";position:absolute;bottom:.1875rem;left:50%;margin-left:-.1875rem;
+  width:.375rem;height:.375rem;border-radius:var(--md-sys-shape-full);
+  background:currentColor;opacity:.7;
+}
+.cal__day.is-selected.has-hw::after{opacity:1}
+.cal__foot{display:flex;align-items:center;gap:.5rem}
+.cal__legend{flex:1 1 auto;font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant)}
+
+/* ---------- 11. 设置：list-detail 两栏 ----------
+ * 依据 Material 3：
+ *   · 左侧是 navigation drawer 的一档（固定展开），选中项用 secondary-container
+ *     + on-secondary-container（M3 的"选中"语义色对，不是自定义蓝）
+ *   · 右侧是 detail pane，内容区独立滚动
+ *   · 选中态同时给 aria-current="true"，供读屏与样式共用
+ *   · 窄屏（<900px）退化为 M3 的单栏 list-detail：先列表、点进详情、可返回
+ */
+.dialog--settings{max-width:60rem;height:min(46rem,100%);max-height:100%}
+
+.set-split{display:flex;flex:1 1 auto;min-height:0;border-top:1px solid var(--md-sys-color-outline-variant)}
+
+/* 左栏：科目导航 */
+.set-nav{
+  flex:0 0 15rem;min-width:0;
+  display:flex;flex-direction:column;gap:.125rem;
+  padding:.625rem .5rem;
+  overflow-y:auto;
+  border-right:1px solid var(--md-sys-color-outline-variant);
+}
+.set-nav__item{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;gap:.75rem;
+  width:100%;height:3.25rem;padding:0 .875rem;
+  border:0;border-radius:var(--md-sys-shape-full);
+  background:transparent;color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-label-large);font-weight:600;
+  text-align:left;cursor:pointer;
+  transition:background-color var(--md-sys-motion-dur-short2) linear,
+             color var(--md-sys-motion-dur-short2) linear;
+}
+.set-nav__item::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;
+  background:currentColor;opacity:0;pointer-events:none;
+  transition:opacity var(--md-sys-motion-dur-short2) linear;
+}
+.set-nav__item:hover::after{opacity:var(--md-sys-state-hover)}
+.set-nav__item:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:-2px}
+.set-nav__item[aria-current="true"]{
+  background:var(--md-sys-color-secondary-container);
+  color:var(--md-sys-color-on-secondary-container);
+}
+.set-nav__badge{
+  flex:none;display:grid;place-items:center;
+  width:2rem;height:2rem;border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+}
+.set-nav__name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-nav__count{
+  flex:none;font-size:var(--md-sys-typescale-label-medium);font-weight:500;
+  opacity:.72;font-variant-numeric:tabular-nums;
+}
+
+/* 右栏：当前科目的详情 */
+.set-detail{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;min-height:0}
+.set-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:.875rem 1.5rem 1.5rem}
+
+/* 详情头：科目名 + 状态 + 返回（窄屏才显示返回） */
+.set-head{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.875rem 1.5rem .5rem;flex:none;
+}
+.set-head__badge{
+  flex:none;display:grid;place-items:center;
+  width:2.5rem;height:2.5rem;border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-title-medium);font-weight:700;
+}
+.set-head__name{font-size:var(--md-sys-typescale-title-large);font-weight:700}
+.set-head__hint{font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant)}
+.set-back{
+  flex:none;display:none;
+  width:2.5rem;height:2.5rem;border:0;border-radius:var(--md-sys-shape-full);
+  background:transparent;color:var(--md-sys-color-on-surface-variant);
+  cursor:pointer;place-items:center;
+}
+.set-back svg{width:1.5rem;height:1.5rem;fill:currentColor}
+
+/* 分区小标题（M3 的 section header） */
+.set-sec{
+  display:flex;align-items:center;gap:.5rem;
+  margin:.5rem 0 .625rem;
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);
+  letter-spacing:.02em;
+}
+.set-sec::after{
+  content:"";flex:1 1 auto;height:1px;
+  background:var(--md-sys-color-outline-variant);
+}
+
+.set-subject__hint{font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant)}
+
+/* 窄屏：单栏 list-detail */
+@media (max-width:900px){
+  .set-nav{flex:1 1 auto;border-right:0}
+  .set-split[data-pane="detail"] .set-nav{display:none}
+  .set-split[data-pane="list"] .set-detail{display:none}
+  .set-split[data-pane="detail"] .set-back{display:grid}
+  .set-body{padding:.75rem 1rem 1rem}
+  .set-head{padding:.75rem 1rem .5rem}
+}
+.set-row{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.5rem .625rem;border-radius:var(--md-sys-shape-sm);
+  border:1px solid var(--md-sys-color-outline-variant);
+  margin-bottom:.5rem;
+}
+.set-sec{margin-top:1.25rem}
+.set-sec:first-child{margin-top:.25rem}
+.set-row__grip{flex:none;color:var(--md-sys-color-on-surface-variant);opacity:.5;display:inline-flex}
+.set-row__grip svg{width:1.125rem;height:1.125rem;fill:currentColor}
+.set-row__input{flex:1 1 auto;min-width:0}
+.set-row__input .textfield{height:2.5rem;font-size:var(--md-sys-typescale-body-medium)}
+.set-row__kind{
+  flex:none;display:inline-flex;align-items:center;height:1.75rem;padding:0 .625rem;
+  border-radius:var(--md-sys-shape-full);
+  background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+  cursor:pointer;user-select:none;
+}
+.set-add{
+  display:flex;align-items:center;gap:.5rem;
+  margin-top:.25rem;padding-top:.75rem;
+  border-top:1px dashed var(--md-sys-color-outline-variant);
+}
+
+/* ---------- 首页空状态：本周横幅 ----------
+ * 放在 board 外面（board 是 flex 三列，塞进去会被当第四列）。
+ * 左边文字、右边五天柱状，横向一行。
+ */
+.week-banner-host{
+  flex:none;
+  padding:0 var(--margin) var(--gutter);
+}
+.week-banner-host[hidden]{display:none}
+.week-banner{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1.5rem;
+  padding:.875rem 1.25rem;
+  border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container);
+  border:1px solid var(--md-sys-color-outline-variant);
+  flex-wrap:wrap;
+}
+.week-banner__left{flex:1 1 16rem;min-width:0;display:flex;flex-direction:column;gap:.2rem}
+.week-banner__title{
+  font-size:var(--md-sys-typescale-title-medium);
+  font-weight:700;
+  color:var(--md-sys-color-on-surface);
+}
+.week-banner__sub{
+  font-size:var(--md-sys-typescale-body-medium);
+  color:var(--md-sys-color-on-surface-variant);
+}
+.week-banner__tip{
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-primary);
+  margin-top:.15rem;
+}
+.week-banner__bars{
+  flex:none;display:flex;align-items:flex-end;gap:.6rem;
+  height:4.5rem;padding-top:.25rem;
+}
+.week-banner__col{
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:.25rem;height:100%;
+}
+.week-banner__bar{
+  width:1.5rem;
+  border-radius:3px 3px 0 0;
+  background:var(--md-sys-color-primary);
+  opacity:.5;
+  min-height:3px;
+}
+.week-banner__col.is-today .week-banner__bar{
+  opacity:1;
+  background:var(--md-sys-color-tertiary-container);
+}
+.week-banner__bar.is-zero{background:var(--md-sys-color-outline-variant);opacity:.6}
+.week-banner__day{
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+}
+.week-banner__col.is-today .week-banner__day{
+  color:var(--md-sys-color-tertiary-container);font-weight:700;
+}
+@media print{ .week-banner{display:none} }
+
+/* ---------- 课时提示条 ----------
+ * 政治/历史的课时只有编号（1.1 / 第1课），没有课程名。
+ * 这里用 MD3 的 surface-container 做一条低调说明，
+ * 不要做成警告色 —— 不是错误，只是说明。
+ */
+.lesson-notice{
+  display:flex;align-items:center;gap:.5rem;
+  margin-bottom:.5rem;
+  padding:.5rem .75rem;
+  border-radius:var(--md-sys-shape-sm);
+  background:var(--md-sys-color-surface-container);
+  border-left:3px solid var(--md-sys-color-primary);
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+  line-height:1.5;
+}
+.lesson-notice[hidden]{display:none}
+.lesson-notice svg{
+  flex:none;width:1.05rem;height:1.05rem;
+  fill:var(--md-sys-color-primary);
+}
+
+/* ---------- 本周总览 ----------
+ * 复用 MD3 的 surface-container 层级 + 科目品牌色。
+ * 布局：顶部四个统计卡 → 一周柱状条 → 各科明细。
+ */
+.dialog--overview{max-width:52rem;height:auto;max-height:min(46rem,92%)}
+.ov-body{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  padding:.25rem 1.75rem 1rem;
+  display:flex;flex-direction:column;gap:1.5rem;
+}
+
+/* 顶部四个数字卡 */
+.ov-stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:.75rem;
+}
+.ov-stat{
+  padding:.875rem 1rem;
+  border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container);
+  display:flex;flex-direction:column;gap:.125rem;
+}
+.ov-stat__num{
+  font-size:var(--md-sys-typescale-headline-small);
+  font-weight:700;
+  color:var(--md-sys-color-primary);
+  font-variant-numeric:tabular-nums;
+  line-height:1.2;
+}
+.ov-stat__lb{
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+}
+
+/* 一周柱状 */
+.ov-week{display:flex;flex-direction:column;gap:.5rem}
+.ov-week__title{
+  font-size:var(--md-sys-typescale-label-large);font-weight:700;
+  color:var(--md-sys-color-on-surface-variant);
+}
+.ov-bars{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:.5rem;
+  padding:.5rem 0;
+}
+/* 每列：数字 → 柱区(固定像素高) → 星期。
+   柱区高度写成和 JS 里 BAR_MAX_PX 一致的定值，柱子用 JS 算出的 px 高度。 */
+.ov-bar{
+  display:flex;flex-direction:column;align-items:center;
+  gap:.25rem;
+}
+.ov-bar .ov-bar__col{ margin-top:auto; }
+/* 数字和星期之间的空间由柱区高度决定，给个下限保证版面稳定 */
+.ov-bars{ min-height:9.5rem; }
+.ov-bar__col{
+  width:100%;
+  border-radius:var(--md-sys-shape-xs) var(--md-sys-shape-xs) 0 0;
+  background:var(--md-sys-color-primary);
+  min-height:3px;
+  transition:height .2s ease;
+}
+.ov-bar__col.is-zero{background:var(--md-sys-color-surface-container-highest)}
+.ov-bar__col.is-today{background:var(--md-sys-color-primary-container)}
+.ov-bar__n{
+  font-size:var(--md-sys-typescale-label-medium);
+  font-weight:700;
+  color:var(--md-sys-color-on-surface);
+  font-variant-numeric:tabular-nums;
+}
+.ov-bar__d{
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+}
+.ov-bar.is-today .ov-bar__d{color:var(--md-sys-color-primary);font-weight:700}
+
+/* 各科明细 */
+.ov-subs{display:flex;flex-direction:column;gap:.5rem}
+.ov-sub{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.5rem .75rem;
+  border-radius:var(--md-sys-shape-sm);
+  background:var(--md-sys-color-surface-container);
+}
+.ov-sub__badge{
+  flex:none;display:grid;place-items:center;
+  width:1.75rem;height:1.75rem;border-radius:var(--md-sys-shape-full);
+  font-size:var(--md-sys-typescale-label-medium);font-weight:700;
+}
+.ov-sub__name{flex:0 0 4.5rem;font-size:var(--md-sys-typescale-body-medium);font-weight:600}
+.ov-sub__track{
+  flex:1 1 auto;height:.5rem;border-radius:999px;
+  background:var(--md-sys-color-surface-container-highest);
+  overflow:hidden;
+}
+.ov-sub__fill{height:100%;border-radius:999px}
+.ov-sub__n{
+  flex:none;font-size:var(--md-sys-typescale-label-medium);
+  color:var(--md-sys-color-on-surface-variant);
+  font-variant-numeric:tabular-nums;
+  min-width:3.5rem;text-align:right;
+}
+
+/* 空状态 */
+.ov-empty{
+  padding:2.5rem 1rem;text-align:center;
+  color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-body-medium);
+}
+
+/* 首页空状态里的周统计 */
+.week-mini{
+  margin-top:.75rem;
+  display:flex;flex-direction:column;align-items:center;gap:.5rem;
+}
+.week-mini__row{
+  display:flex;align-items:flex-end;gap:.35rem;height:2.5rem;
+}
+.week-mini__bar{
+  width:1.5rem;border-radius:2px 2px 0 0;
+  background:var(--md-sys-color-primary);
+  opacity:.45;min-height:2px;
+}
+.week-mini__bar.is-today{opacity:1;background:var(--md-sys-color-primary)}
+.week-mini__txt{
+  font-size:var(--md-sys-typescale-body-small);
+  color:var(--md-sys-color-on-surface-variant);
+}
+
+/* ---------- 左下角状态条 ----------
+ * 只放版本号和上次同步时间。低调，不要抢视觉重心。
+ */
+.statusbar{
+  position:fixed;left:.85rem;bottom:.65rem;z-index:40;
+  display:flex;align-items:center;gap:.35rem;
+  padding:.15rem .5rem;
+  border-radius:999px;
+  /* 用主题变量，深浅色都能看清（不要写死深色底） */
+  background:var(--md-sys-color-surface-container);
+  border:1px solid var(--md-sys-color-outline-variant);
+  font-size:.6875rem;
+  line-height:1.5;
+  color:var(--md-sys-color-on-surface-variant);
+  opacity:.8;
+  user-select:none;
+  pointer-events:none;
+  white-space:nowrap;
+}
+.statusbar__ver{
+  font-weight:700;
+  /* primary 在深浅两套主题里都有足够对比度 */
+  color:var(--md-sys-color-primary);
+  font-variant-numeric:tabular-nums;
+}
+/* 浅色模式：略加深版底，避免和页面白底混在一起 */
+[data-theme="light"] .statusbar{
+  background:var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-container));
+  opacity:.95;
+}
+.statusbar__sep{opacity:.45}
+.statusbar__txt{
+  font-variant-numeric:tabular-nums;
+}
+/* 版权行：跟版本号分行显示。状态条改成竖排两行（原来只有一行）。 */
+.statusbar{
+  flex-direction:column;align-items:flex-start;gap:0;
+  border-radius:.6rem;line-height:1.45;
+  /* 版权那句比较长，别被截断 —— 状态条整体不许换行，但宽度要够 */
+  max-width:32rem;white-space:nowrap;
+}
+.statusbar__row{display:flex;align-items:center;gap:.35rem}
+.statusbar__row--copy{margin-top:.05rem}
+.statusbar__copy{opacity:.72}
+@media print{ .statusbar{display:none} }
+
+/* ---------- 分步向导 ----------
+ * 一次只显示一步。进度条显示走到哪，可点回退。
+ * 视觉沿用 MD3：surface-container + 状态层 + 4px 圆角。
+ */
+.wizard{padding:.25rem 0 .5rem;flex:none}
+.wizard__bar{display:flex;align-items:center;gap:.375rem;padding:.5rem 0 .75rem}
+.wizard__crumb{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.3rem .7rem;border-radius:999px;
+  background:transparent;border:1px solid var(--md-sys-color-outline-variant);
+  color:var(--md-sys-color-on-surface-variant);
+  font-size:var(--md-sys-typescale-label-medium);cursor:pointer;
+  transition:background-color .12s linear,border-color .12s linear,color .12s linear;
+}
+.wizard__crumb:not([disabled]):hover{background:var(--state-layer)}
+.wizard__crumb[disabled]{cursor:default;opacity:.55}
+.wizard__crumb.is-current{
+  background:rgb(var(--accent));border-color:rgb(var(--accent));
+  color:var(--md-sys-color-on-primary);font-weight:700;
+}
+.wizard__crumb.is-done{border-color:rgb(var(--accent));color:rgb(var(--accent))}
+.wizard__no{
+  display:inline-grid;place-items:center;width:1.15rem;height:1.15rem;
+  border-radius:999px;background:var(--md-sys-color-surface-container-highest);
+  font-size:.7rem;font-weight:700;
+}
+.wizard__crumb.is-current .wizard__no{background:rgba(255,255,255,.25);color:#fff}
+.wizard__crumb.is-done .wizard__no{background:rgba(var(--accent),.2);color:rgb(var(--accent))}
+.wizard__sep{flex:1 1 auto;height:1px;max-width:2.5rem;background:var(--md-sys-color-outline-variant)}
+.wizard__pane{padding:.25rem 0 .5rem}
+.wizard__pane[hidden]{display:none}
+.wizard__foot{display:flex;align-items:center;gap:.5rem;padding-top:.25rem;min-height:2rem}
+.wizard__foot .textbtn{
+  display:inline-flex;align-items:center;gap:.25rem;
+  font-size:var(--md-sys-typescale-label-large);
+  color:var(--md-sys-color-primary);
+  padding:.25rem .5rem;border-radius:var(--md-sys-shape-xs);
+  cursor:pointer;border:0;background:transparent;
+}
+.wizard__foot .textbtn:hover{background:var(--state-layer)}
+.wizard__foot .textbtn svg{width:1rem;height:1rem;fill:currentColor}
+.wizard__foot .textbtn[hidden]{display:none}
+.type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.625rem}
+.type-card{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.875rem 1rem;border-radius:var(--md-sys-shape-md);
+  background:var(--md-sys-color-surface-container);
+  border:1.5px solid transparent;cursor:pointer;text-align:left;
+  transition:background-color .12s linear,border-color .12s linear;
+}
+.type-card:hover{background:var(--md-sys-color-surface-container-high);border-color:var(--md-sys-color-outline-variant)}
+.type-card[aria-pressed="true"]{border-color:rgb(var(--accent));background:rgba(var(--accent),.16)}
+.type-card__icon{
+  flex:none;width:2.25rem;height:2.25rem;border-radius:var(--md-sys-shape-sm);
+  display:grid;place-items:center;background:rgba(var(--accent),.18);color:rgb(var(--accent));
+}
+.type-card__icon svg{width:1.25rem;height:1.25rem;fill:currentColor}
+.type-card__txt{min-width:0}
+.type-card__name{font-size:var(--md-sys-typescale-body-large);font-weight:600;color:var(--md-sys-color-on-surface);line-height:1.3}
+.type-card__hint{font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant);margin-top:.15rem;line-height:1.35}
+
+/* ---------- 13. 打印 ---------- */
+@media print{
+  .topbar,.fab,.scrim,.snackbar{display:none!important}
+  html{font-size:12pt}
+  body{height:auto;overflow:visible;background:#fff;color:#000}
+  .app{display:block;height:auto}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;padding:0;overflow:visible}
+  .card{break-inside:avoid;border:1px solid #888;border-top:3px solid #444;background:#fff;color:#000;overflow:visible;opacity:1}
+  .card--empty{opacity:1}
+  .card__title,.hw__book{color:#000}
+  .card__badge,.card__count,.hw__detail{background:#eee;color:#000}
+  .hw__note{color:#333}
+  .card__edit,.hw__mark,.card__empty{display:none}
+}
+
+/* ---------- 11. 响应式（MD3 window size classes） ----------
+ * 字号档位：教室大屏是"远看"设备，1920 屏正文要 24px 才够后排看清。
+ * 档位走 --screen-scale，用户微调走 --ui-scale，两者相乘。
+ */
+@media (min-width:840px)  { :root{--screen-scale:1.15} }   /* 中屏 */
+@media (min-width:1200px) { :root{--screen-scale:1.3}  }   /* 笔记本 / 小屏一体机 */
+@media (min-width:1600px) { :root{--screen-scale:1.5}  }   /* ★ 1920×1080 教室大屏：正文 24px */
+@media (min-width:3000px) { :root{--screen-scale:2}    }   /* ★ 3840×2160 大屏：正文 32px */
+
+/* 竖向空间紧的机器（1366×768 / 1600×900 一体机、带浏览器工具栏的窗口）：
+   进一步压缩间距与键盘，尽量让"录作业"这件事仍然一屏完成。
+   原则不变：缩间距无害，缩字号致命 —— 字号一律不动。 */
+@media (max-height:900px){
+  .hw-tabs{padding:.375rem 0 .25rem}
+  .step{padding:.375rem 0}
+  .step--books{padding:.25rem 0 .5rem}
+  .step--note{padding-top:.5rem}
+  .page-display{height:2.75rem;font-size:1.5rem;margin-bottom:.375rem}
+  .page-display__p{font-size:1.25rem}
+  .keypad button{height:2rem;font-size:1.0625rem}
+  .lesson-list{max-height:min(12rem,26vh)}
+  .lessons-tools{padding-top:.375rem}
+  .dialog__head{padding:.625rem 1.25rem .5rem 1.5rem}
+  .dialog__sub{display:none}
+  .dialog__foot{padding:.5rem 1.25rem .75rem}
+}
+@media (max-height:780px){
+  .keypad button{height:1.75rem;font-size:1rem}
+  .page-display{height:2.5rem;font-size:1.375rem}
+  .lesson-list{max-height:min(10rem,22vh)}
+  .chip{height:2rem}
+  .chip--sm{height:1.625rem}
+}
+
+@media (max-width:1599px){
+  :root{--margin:1.5rem;--gutter:1.125rem}
+  .brand__title{font-size:var(--md-sys-typescale-headline-medium)}
+}
+@media (max-width:1199px){
+  :root{--margin:1.25rem;--gutter:1rem}
+  .board{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(13rem,auto);overflow-y:auto}
+  .dialog--hw{height:min(42rem,92vh);height:min(42rem,92dvh)}
+  .hw-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.4fr) minmax(0,1fr)}
+  .hw-right{border-left:0;border-top:1px solid var(--md-sys-color-outline-variant);padding:0 1.5rem}
+  .brand__date{display:none}
+}
+@media (max-width:839px){
+  .board{grid-template-columns:minmax(0,1fr)}
+  .subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dialog--hw{height:94vh;height:94dvh;max-width:none}
+  .toolbtn span{display:none}
+  /* 但「工具」这个开关按钮的文字要留着 ——
+     收起来的时候它就是界面上唯一的提示，光三个点用户不知道那是什么。 */
+  .toolbtn--toggle span{display:inline}
+}@media (max-width:599px){
+  .subject-grid{grid-template-columns:minmax(0,1fr)}
+  .brand__title{font-size:var(--md-sys-typescale-title-large)}
+  .datenav__label{min-width:4.5rem}
+}
+/* ============================================================================
+   开屏动画（2026-10-24）
+   启动时：全屏遮罩 + 中间 logo + 「作业贴」，logo 淡入 → 整屏淡出。
+   ⚠️ 设计约束：
+   *   · 时长 2.4 秒（1.4 秒太短，开机时人注意力在别处，等看清已经没了）
+   *   · 遮罩必须能被"跳过"：点一下 / 按任意键就立刻消失
+   *   · **不做缩放、不做光晕** —— 用户两次反馈"会突然缩小"，
+   *     根因是缩放动画的结束帧 + box-shadow 淡出不同步 + 光晕循环缩放
+   *     ⇒ 现在只保留"淡入 + 淡出"，不会有任何形变
+   *   · prefers-reduced-motion 下**降级为静态**（不播动画，但 logo 照常显示）
+   *   · **不能挡住功能**：动画结束后遮罩要彻底移除（removeChild）
+   ========================================================================== */
+.splash{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--md-sys-color-surface);
+  opacity:1;
+  transition:opacity .45s ease;
+}
+.splash.is-gone{opacity:0;pointer-events:none}
+[data-theme="dark"] .splash__ring{
+  background:radial-gradient(circle, rgba(126,219,174,.30) 0%, rgba(126,219,174,0) 68%);
+}
+@keyframes splashRing{
+  0%{transform:scale(.72);opacity:.55}
+  100%{transform:scale(1.35);opacity:0}
+}
+.splash__logo{
+  position:relative;
+  width:7rem;height:7rem;border-radius:1.7rem;
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  /* ⚠️⚠️ 2026-10-24 用户两次反馈「会突然缩小」：
+   *   1. 动画结束帧必须是 scale(1)（fill-mode:both 会停在最后一帧），
+   *      结束帧写成 scale(1.06) 就会在淡出时跳一下。
+   *   2. **box-shadow 会在元素淡出时"先淡"，logo 本体还没淡完** ——
+   *      视觉上就像 logo 缩小了一圈（阴影没了、图还在）。
+   *      ⇒ 干脆不要阴影（背景色自带对比度，不影响观感）。
+   *   3. 干脆**不做缩放动画** —— 只做淡入。
+   *      "缩放"是"突然缩小"这种抱怨的主要来源，去掉最省事也最稳。
+   */
+  animation:splashLogo 2.4s ease-out both;
+}
+@keyframes splashLogo{
+  0%{opacity:0}
+  25%{opacity:1}
+  100%{opacity:1}
+}
+.splash__name{
+  position:absolute;
+  margin-top:9.5rem;
+  font-size:var(--md-sys-typescale-title-medium);
+  font-weight:700;letter-spacing:.02em;
+  color:var(--md-sys-color-on-surface);
+  animation:splashName 2.4s ease both;
+}
+.splash__name em{font-style:normal;color:var(--md-sys-color-primary)}
+@keyframes splashName{
+  0%{opacity:0;transform:translateY(.5rem)}
+  24%{opacity:1;transform:translateY(0)}
+  100%{opacity:1;transform:translateY(0)}
+}
+/* 动画期间正文先藏起来（避免"内容先出现再被遮罩盖住"的闪一下）
+ * ⚠️ **保险**：正文默认是可见的（opacity:1），由 app.js 在开屏开始时
+ *    加 .is-booting 藏起来 —— 这样**万一 JS 挂了，页面也不会是全黑的**
+ *    （"稳定性优先"：白屏比不好看严重得多）。 */
+.app{opacity:1;transition:opacity .35s ease .1s}
+.app.is-booting{opacity:0}
+.app.is-ready{opacity:1}
+/* ⚠️⚠️ 动效降级（2026-10-24 踩过的坑）：
+ *   Windows/Linux 桌面的「动画效果」**默认是关的** ⇒
+ *   `prefers-reduced-motion: reduce` 默认为真（实测本机 reduce=是）。
+ *   我第一版写的是 `@media (prefers-reduced-motion:reduce){ .splash{display:none} }`
+ *   ⇒ **开屏动画直接被藏了，用户根本看不到**（用户反馈"没看到开屏动画"）。
+ *   ⇒ 改成**降级而不是隐藏**：
+ *     · 不做缩放/淡入（不做动画）
+ *     · 但 logo 仍然显示、仍然停留一小会儿（这样"开机看到 logo"这个效果还在）
+ *   真正想完全不要开屏的，应该由**用户设置**来控制，不是系统设置。 */
+/* ⚠️ 光晕（扩散圆环）2026-10-24 全部去掉：
+ *   它是"突然缩小"投诉的另一个来源 ——
+ *   ① 它自己是 scale(.72)→scale(1.35) 的放大动画，
+ *      放完就停在 1.35（forwards），跟 logo 的淡出不同步 ⇒ 看着像有东西在缩；
+ *   ② infinite 循环时它一直在放大-缩小，更明显。
+ *   ⇒ 干脆不要。开屏只要 logo + 名字，干净。
+ *   （留这段代码是为了将来想加回来时有个参考，别直接删。） */
+.splash__ring{display:none}
+@media (prefers-reduced-motion:reduce){
+  .splash{transition:none!important}
+  .splash__logo{animation:none!important;opacity:1!important;transform:none!important}
+  .splash__name{animation:none!important;opacity:1!important;transform:none!important}
+}
+@media (max-width:900px){
+  .splash__logo{width:5.4rem;height:5.4rem;border-radius:1.3rem}
+  .splash__name{margin-top:7.4rem}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- 开屏动画（2026-10-24）。logo 由 app.js 注入 background-image -->
+<div class="splash" id="splash">
+  <div class="splash__logo" id="splashLogo" aria-hidden="true"></div>
+  <div class="splash__name" id="splashName">作业<em>贴</em></div>
+</div>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__logo" id="brandLogo" aria-hidden="true"></div>
+      <h1 class="brand__title">Open作业<em>贴</em><span class="brand__ver" id="brandVer" title="页面版本">v__VERSION__</span></h1>
+      <span class="brand__date" id="brandDate">—</span>
+      <span class="brand__badge" id="brandBadge">今天</span>
+    </div>
+    <span class="spacer"></span>
+    <div class="datenav">
+      <button class="icon-btn icon-btn--sm" id="btnPrevDay" title="前一天（← 键）" aria-label="前一天">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <button class="datenav__label" id="btnToday" title="点开日历选日期">今天</button>
+      <button class="icon-btn icon-btn--sm" id="btnNextDay" title="后一天（→ 键）" aria-label="后一天">
+        <svg viewBox="0 0 24 24"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnCal" title="打开日历选日期" aria-label="日历">
+        <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm3 4h3v3H8v-3z"/></svg>
+      </button>
+    </div>
+    <div class="toolbar" id="toolbar">
+      <!-- 工具面板在**左边**，开关按钮在**最右边**。
+           展开时工具从开关按钮的左边"长"出来（向左生长）——
+           工具栏贴着屏幕右缘，永远不会溢出屏幕右边被裁掉。
+           收起时右边只剩这一根「工具」按钮。 -->
+      <div class="toolbar__panel" id="toolPanel">
+      <button class="toolbtn" id="btnCopy" title="把前一天的作业原样搬过来">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+        <span>沿用昨天</span>
+      </button>
+      <button class="toolbtn" id="btnClear" title="清空这一天的全部作业">
+        <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>清空</span>
+      </button>
+      <span class="sep"></span>
+      <button class="icon-btn icon-btn--sm" id="btnFontMinus" title="整屏字号缩小（- 键）" aria-label="缩小字号">
+        <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnFontPlus" title="整屏字号放大（+ 键）" aria-label="放大字号">
+        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnTheme" title="切换黑板／白板（D 键）" aria-label="切换主题">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5.39 5.39 0 0 1 16.5 13 5.5 5.5 0 0 1 11 7.5c0-1.63.71-3.1 1.85-4.13C12.56 3.13 12.28 3 12 3z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnSettings" title="设置 · 管理各科的作业本" aria-label="设置">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnFull" title="全屏（F 键，F11 也行）" aria-label="全屏">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnOverview" title="本周总览" aria-label="本周总览">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnMini" title="小窗模式（浮在其他窗口上显示作业）" aria-label="小窗模式">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 9h10v2H7V9zm0 4h7v2H7v-2z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn--sm" id="btnData" title="数据备份 / 导入导出" aria-label="数据">
+        <svg viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 .9-4 2s1.79 2 4 2 4-.9 4-2-1.79-2-4-2zm-8 2c0-1.66 3.58-3 8-3s8 1.34 8 3v4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-4zm2.5 5.9c1.4.68 3.34 1.1 5.5 1.1s4.1-.42 5.5-1.1V16c0 .55-2.24 1.5-5.5 1.5S6.5 16.55 6.5 16v-.1z"/></svg>
+      </button>
+      </div>
+      <!-- 折叠开关在**最右边**：点它，工具从它左边"长"出来 -->
+      <button class="toolbtn toolbtn--toggle" id="btnTools" title="展开工具（1 分钟无操作会自动收起）" aria-label="展开工具" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>
+        <span>工具</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 全空时的本周统计横幅（渲染时按需填充） -->
+  <div class="week-banner-host" id="weekBannerHost" hidden></div>
+
+  <main class="board" id="board" aria-label="今天的作业"></main>
+</div>
+
+<!-- 左下角状态：版本号 + 本机存储说明 + 版权行 -->
+<div class="statusbar" id="statusbar">
+  <span class="statusbar__row">
+    <span class="statusbar__ver" id="sbVer">v__VERSION__</span>
+    <span class="statusbar__sep">·</span>
+    <span class="statusbar__txt" id="sbInfo">—</span>
+  </span>
+  <span class="statusbar__row statusbar__row--copy">
+    <span class="statusbar__copy">Open作业贴 · Copyright © 2026 yiyi · MIT License · 开源离线版</span>
+  </span>
+</div>
+
+<button class="fab" id="fab" aria-haspopup="dialog" title="添加作业（N 键）">
+  <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+  <span>添加作业</span>
+</button>
+
+<div class="scrim" id="scrimSubject">
+  <div class="dialog dialog--subject" role="dialog" aria-modal="true" aria-labelledby="subjectDlgTitle">
+    <div class="dialog__head">
+      <div class="dialog__title"><span id="subjectDlgTitle">选择科目</span>
+        <div class="dialog__sub" id="subjectDlgSub">选中后即可为这一科添加作业</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="subject-grid" id="subjectGrid"></div>
+    <div class="dialog__foot">
+      <span class="spacer"></span>
+      <button class="btn btn--text btn--neutral" data-close>取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrimHw">
+  <div class="dialog dialog--hw" role="dialog" aria-modal="true" aria-labelledby="hwDlgTitle">
+    <div class="dialog__head">
+      <span class="card__badge" id="hwBadge">语</span>
+      <div class="dialog__title"><span id="hwDlgTitle">语文</span>
+        <div class="dialog__sub" id="hwDlgSub">选作业本 → 选页码／课时 → 加备注 → 添加</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+
+    <div class="hw-cols">
+      <section class="hw-left">
+        <div class="hw-tabs">
+          <div class="segmented" role="tablist" id="hwTabs">
+            <button type="button" role="tab" data-tab="quick" aria-selected="true">
+              <svg viewBox="0 0 24 24"><path d="M13 3h-2v8H3v2h8v8h2v-8h8v-2h-8z"/></svg>快捷添加
+            </button>
+            <button type="button" role="tab" data-tab="custom" aria-selected="false">
+              <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>自定义
+            </button>
+            
+          </div>
+        </div>
+
+        <div class="hw-panel scroll-mask" id="hwPanel">
+          <div data-panel="quick">
+            <!-- ============ 分步向导 ============
+                 一次只显示一步。选完自动进下一步，顶部进度条可点回退。 -->
+            <div class="wizard">
+
+              <!-- 进度条 -->
+              <div class="wizard__bar" id="wizardBar">
+                <button class="wizard__crumb" type="button" data-step="1">
+                  <span class="wizard__no">1</span><span>选类型</span>
+                </button>
+                <span class="wizard__sep"></span>
+                <button class="wizard__crumb" type="button" data-step="2" disabled>
+                  <span class="wizard__no">2</span><span id="crumb2Text">选作业本</span>
+                </button>
+                <span class="wizard__sep"></span>
+                <button class="wizard__crumb" type="button" data-step="3" disabled>
+                  <span class="wizard__no">3</span><span id="crumb3Text">填内容</span>
+                </button>
+                <span class="wizard__sep"></span>
+                <button class="wizard__crumb" type="button" data-step="4" disabled>
+                  <span class="wizard__no">4</span><span>补充信息</span>
+                </button>
+              </div>
+
+              <!-- 第 1 步：选类型 -->
+              <div class="wizard__pane" id="wPane1">
+                <div class="step__label" data-base="这是一项什么作业">
+                  <span class="txt">这是一项什么作业？</span>
+                  <span class="hint">点一下，自动进入下一步</span>
+                </div>
+                <div class="type-grid" id="typeGrid"></div>
+              </div>
+
+              <!-- 第 2 步 A：选作业本 -->
+              <div class="wizard__pane" id="wPane2Book" hidden>
+                <div class="step__label" data-base="选作业本">
+                  <span class="txt" id="wPane2Label">选作业本</span>
+                  <span class="hint">点一下即可</span>
+                </div>
+                <div class="chips" id="bookChips"></div>
+              </div>
+
+              <!-- 第 2 步 B：选快捷词 -->
+              <div class="wizard__pane" id="wPane2Word" hidden>
+                <div class="step__label" data-base="哪一种">
+                  <span class="txt">哪一种？</span>
+                  <span class="hint">在设置里可以自己加减</span>
+                </div>
+                <div class="chips" id="wordChips"></div>
+              </div>
+
+              <!-- 第 3 步 A：页码 -->
+              <div class="wizard__pane" id="wPane3Page" hidden>
+                <div class="step__label" data-base="选页码">
+                  <span class="txt">选页码</span>
+                  <span class="hint">点数字，不用打字</span>
+                </div>
+                <div class="page-display">
+                  <span class="page-display__p">P</span>
+                  <span class="page-display__ph" id="pagePh">点下面的数字</span>
+                  <span class="page-display__val" id="pageVal"></span><span class="page-display__caret" id="pageCaret" hidden></span>
+                </div>
+                <div class="keypad" id="keypad"></div>
+                <div class="chips" id="pageQuick" style="margin-top:.5rem"></div>
+              </div>
+
+              <!-- 第 3 步 B：课时 -->
+              <div class="wizard__pane" id="wPane3Lesson" hidden>
+                <div class="step__label" data-base="选课时">
+                  <span class="txt">选课时</span>
+                  <span class="hint">导学案按课时一一对应</span>
+                </div>
+                <div class="lesson-notice" id="lessonNotice" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
+                  <span>由于特殊原因，暂不提供具体课程名称</span>
+                </div>
+                <div class="row-gap">
+                  <button class="md-select md-select--grow" id="chapterSelect" type="button">
+                    <span class="md-select__txt">全部章节</span>
+                    <svg viewBox="0 0 24 24" class="md-select__caret"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                </div>
+                <div class="lesson-wrap"><div class="lesson-list scroll-mask" id="lessonList"></div></div>
+              </div>
+
+              <!-- 第 3 步 C：填内容（快捷词） -->
+              <div class="wizard__pane" id="wPane3Text" hidden>
+                <div class="step__label" data-base="填内容">
+                  <span class="txt" id="wPane3TextLabel">填内容</span>
+                  <span class="hint">写完点下面的按钮</span>
+                </div>
+                <div class="md-field">
+                  <input class="textfield" id="quickWordText" placeholder="例如：《登高》、改革开放的意义" autocomplete="off">
+                </div>
+              </div>
+
+              <!-- 第 4 步：补充信息（选填）—— 备注 + 提交时效。
+                   原来这两块常驻在向导下面，白占一大块高度；用户要求收进引导里。
+                   所以这里是「搬进来」，不是复制：旧的 .quick-grid 容器整块已删除。 -->
+              <div class="wizard__pane" id="wPane4Extra" hidden>
+                <div class="step__label" data-base="补充信息">
+                  <span class="txt">补充信息</span>
+                  <span class="hint">选填。不填就直接点右下角「添加」</span>
+                </div>
+
+                <div class="step step--note">
+                <div class="step__label" data-base="加备注">
+                  <span class="txt">加备注</span> <span class="hint">可加多条</span>
+                  <button class="textbtn" id="btnAddClause" type="button">＋ 加一条</button>
+                </div>
+                <div class="clauses" id="noteClauses"></div>
+                <div class="note-empty" id="noteEmptyHint">还没有备注。点「＋ 加一条」可以写「第3、5题不用写」这类要求，能加好几条。</div>
+                <div class="md-field">
+                  <input id="noteInput" placeholder="也可直接手写备注" autocomplete="off">
+                </div>
+                </div>
+
+                <div class="step step--due">
+                <div class="step__label due-label">
+                  <span class="txt">提交时效</span> <span class="hint">建议填 · 选填</span>
+                </div>
+                <div class="chips" id="dueDayChips"></div>
+                <div class="chips" id="duePeriodChips"></div>
+                <div class="md-field">
+                  <input id="dueInput" placeholder="或自己写：如「明早读交」" autocomplete="off">
+                </div>
+              </div>
+              </div>
+
+              <!-- 上一步 / 去补充信息 -->
+              <div class="wizard__foot">
+                <button class="textbtn" id="wizardBack" type="button" hidden>
+                  <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                  <span>上一步</span>
+                </button>
+                <span class="spacer"></span>
+                <button class="textbtn" id="wizardNext" type="button" hidden>
+                  <span>补充备注 / 时效</span>
+                  <svg viewBox="0 0 24 24"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div data-panel="custom" hidden>
+            <div class="step">
+              <div class="step__label">作业名称</div>
+              <input class="textfield" id="cTitle" placeholder="例如：校本作业 / 试卷 / 作文" autocomplete="off">
+              <div class="row-gap">
+                <button class="md-select" id="cTitleSelect" type="button">
+                  <span class="md-select__txt">常用名称</span>
+                  <svg viewBox="0 0 24 24" class="md-select__caret"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step__label">具体内容</div>
+              <input class="textfield" id="cBody" placeholder="例如：P20 第3题 / 背诵第2段" autocomplete="off">
+              <div class="row-gap">
+                <button class="md-select" id="cBodySelect" type="button">
+                  <span class="md-select__txt">常用内容</span>
+                  <svg viewBox="0 0 24 24" class="md-select__caret"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step__label">备注 <span class="hint">可选</span></div>
+              <input class="textfield" id="cNote" placeholder="例如：明天交 / 家长签字" autocomplete="off">
+              <div class="row-gap">
+                <button class="md-select" id="cNoteSelect" type="button">
+                  <span class="md-select__txt">常用备注</span>
+                  <svg viewBox="0 0 24 24" class="md-select__caret"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <aside class="hw-right">
+        <div class="hw-right__head">
+          <h3 id="hwListTitle">今日语文作业</h3>
+          <span class="card__count" id="hwListCount">0</span>
+          <span class="spacer"></span>
+          <button class="icon-btn icon-btn--sm" id="btnClearSubject" title="清空这一科的作业" aria-label="清空这一科">
+            <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+        <div class="hw-right__list scroll-mask" id="hwList"></div>
+      </aside>
+    </div>
+
+    <div class="dialog__foot">
+      <button class="btn btn--text btn--neutral" id="btnExit" title="结束这一科的添加，回到选科目">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4V5z"/></svg>
+        <span>退出</span>
+      </button>
+      <span class="spacer"></span>
+      <button class="btn btn--text btn--neutral" id="btnCancelEdit" hidden>取消编辑</button>
+      <button class="btn btn--filled btn--lg" id="btnCommit">
+        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span id="btnCommitLabel">添加到今天的作业</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrimData">
+  <div class="dialog" style="max-width:34rem" role="dialog" aria-modal="true" aria-labelledby="dataDlgTitle">
+    <div class="dialog__head">
+      <div class="dialog__title"><span id="dataDlgTitle">数据</span>
+        <div class="dialog__sub">作业只存在这台电脑的浏览器里，换电脑请用导出的文件搬</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div style="padding:0 1.75rem .625rem;display:grid;gap:.625rem">
+      <button class="btn btn--tonal btn--block" id="btnExport">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span>导出全部作业（JSON 备份文件）</span>
+      </button>
+      <button class="btn btn--tonal btn--block" id="btnImport">
+        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg><span>从文件导入（合并进来，不覆盖现有）</span>
+      </button>
+      <button class="btn btn--tonal btn--block" id="btnExportText">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>导出为文本（Markdown）</span>
+      </button>
+      <button class="btn btn--tonal btn--block" id="btnPrint">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3zm-3 11H8v-5h8v5zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM18 3H6v4h12V3z"/></svg><span>打印这一天的作业</span>
+      </button>
+      <button class="btn btn--tonal btn--block" id="btnWipe" style="color:var(--md-sys-color-error)">
+        <svg viewBox="0 0 24 24"><path d="M15 4V3H9v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5zM7 6h10v13H7V6zm2 2v9h2V8H9zm4 0v9h2V8h-2z"/></svg><span>抹掉全部数据（不可恢复）</span>
+      </button>
+      <div style="font-size:var(--md-sys-typescale-body-small);color:var(--md-sys-color-on-surface-variant);padding:.25rem 0 0;line-height:1.6">
+        建议隔一段时间导出一次备份。教室电脑重装系统会清掉浏览器数据。
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <span class="spacer"></span>
+      <button class="btn btn--text btn--neutral" data-close>关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 日历 ============ -->
+<div class="scrim" id="scrimCal">
+  <div class="dialog" style="max-width:26rem" role="dialog" aria-modal="true" aria-labelledby="calTitle">
+    <div class="dialog__head">
+      <div class="dialog__title"><span id="calTitle">选择日期</span>
+        <div class="dialog__sub" id="calSub">有作业的日子带一个小圆点</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="cal">
+      <div class="cal__head">
+        <button class="icon-btn icon-btn--sm" id="calPrev" aria-label="上个月">
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <div class="cal__title" id="calMonth">—</div>
+        <button class="icon-btn icon-btn--sm" id="calNext" aria-label="下个月">
+          <svg viewBox="0 0 24 24"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+        </button>
+      </div>
+      <div class="cal__grid" id="calGrid"></div>
+      <div class="cal__foot">
+        <span class="cal__legend" id="calLegend"></span>
+        <button class="btn btn--text" id="calToday">回到今天</button>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <span class="spacer"></span>
+      <button class="btn btn--text btn--neutral" data-close>关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 设置 · 作业本管理 ============ -->
+<div class="scrim" id="scrimSettings">
+  <div class="dialog dialog--settings" role="dialog" aria-modal="true" aria-labelledby="setDlgTitle">
+    <div class="dialog__head">
+      <div class="dialog__title"><span id="setDlgTitle">设置</span>
+        <div class="dialog__sub">改完自动保存，当天已记录的作业不受影响</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="set-split">
+      <nav class="set-nav" id="setNav" aria-label="科目"></nav>
+      <div class="set-detail" id="setDetail">
+        <div class="set-body" id="setBody"></div>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <button class="btn btn--text btn--neutral" id="setReset">恢复默认</button>
+      <span class="spacer"></span>
+      <button class="btn btn--filled" data-close>完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 本周总览 ============ -->
+<div class="scrim" id="scrimOverview">
+  <div class="dialog dialog--overview" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+    <div class="dialog__head">
+      <div class="dialog__title"><span id="ovTitle">本周总览</span>
+        <div class="dialog__sub" id="ovRange">—</div>
+      </div>
+      <button class="icon-btn" data-close title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="ov-body" id="ovBody"></div>
+    <div class="dialog__foot">
+      <span class="spacer"></span>
+      <button class="btn btn--filled" data-close>关闭</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="application/json,.json" hidden>
+<div class="store-warn" id="storeWarn" hidden>
+  <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
+  <span>作业存不进去了（浏览器本地存储满了或被禁用）。请点右上角「数据」先导出备份，否则刷新后这批作业会丢。</span>
+</div>
+<div class="snackbar" id="snackbar"><span id="snackText"></span><button id="snackAct" hidden>撤销</button></div>
+
+<script>
+/* __BOOKS_DATA__ */
+/* __APP_JS__ */
+</script>
+</body>
+</html>

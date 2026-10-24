@@ -1,0 +1,75 @@
+{
+ "subject": "politics",
+ "subjectName": "政治",
+ "book": "统编版 思想政治 必修1 中国特色社会主义",
+ "publisher": "人民教育出版社",
+ "structure": "课框式",
+ "lessons": [
+  {
+   "seq": 1,
+   "no": "1.1",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 2,
+   "no": "1.2",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 3,
+   "no": "2.1",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 4,
+   "no": "2.2",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 5,
+   "no": "3.1",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 6,
+   "no": "3.2",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 7,
+   "no": "4.1",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 8,
+   "no": "4.2",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 9,
+   "no": "4.3",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 10,
+   "no": "综合探究一",
+   "title": "",
+   "chapter": ""
+  },
+  {
+   "seq": 11,
+   "no": "综合探究二",
+   "title": "",
+   "chapter": ""
+  }
+ ]
+}
