@@ -105,7 +105,9 @@ open-yitie/
 │   ├── strip-online-features.cjs  ← 从 app.js 挖掉云同步/AI/语音
 │   ├── strip-template.cjs         ← 从 template.html 挖掉相关 CSS/DOM
 │   ├── rename-branding.cjs        ← 改名 + 版权署名
-│   └── static-check.cjs           ← 交付形态静态检查
+│   ├── adapt-verify-wizard.cjs   ← 把验收台改成离线版
+│   ├── static-check.cjs           ← 交付形态静态检查（含离线断言）
+│   └── verify-wizard.cjs          ← 端到端验收台（274 项断言）
 ├── LICENSE                ← MIT
 └── NOTICE                 ← 版权与致谢
 ```

@@ -100,7 +100,9 @@ open-yitie/
 │   ├── strip-online-features.cjs  ← removes cloud sync / AI / voice from app.js
 │   ├── strip-template.cjs         ← removes the matching CSS and DOM
 │   ├── rename-branding.cjs        │ renames + sets the copyright line
-│   └── static-check.cjs           ← delivery-shape static checks
+│   ├── adapt-verify-wizard.cjs   ← adapts the acceptance harness for offline
+│   ├── static-check.cjs           ← delivery-shape static checks (incl. offline)
+│   └── verify-wizard.cjs          ← end-to-end acceptance harness (274 assertions)
 ├── LICENSE                ← MIT
 └── NOTICE                 ← copyright and credits
 ```
