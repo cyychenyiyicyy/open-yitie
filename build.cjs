@@ -36,6 +36,35 @@ const appJs = fs.readFileSync(APP, 'utf8');
 const books = {};
 let totalLessons = 0;
 
+/* ★ 构建时间戳 —— 让构建**可复现**（reproducible build）
+ *
+ * 为什么重要：产物 open-yitie.html 是要发到 release 上给人家用的。
+ *   如果每次构建都嵌一个"当前时间"，那么：
+ *     · 仓库里提交的那份和用户自己 `node build.cjs` 出来的**不一样**
+ *     · 用户没法验证「我下载的这份确实是这份源码构建出来的」
+ *   ⇒ 时间戳改成**由内容决定**的：
+ *     ① 环境变量 SOURCE_DATE_EPOCH（业界标准，Debian/RPM 打包都这么用）
+ *     ② 退而求其次：用 git 最后一次提交的���间
+ *     ③ 都没有：退回固定串（而不是当前时间）—— 保证同一份源码永远构建出同一个产物
+ *
+ * ⚠️ 注意只影响**注释里的时间戳**，不影响功能。
+ */
+function buildStamp() {
+  const ep = process.env.SOURCE_DATE_EPOCH;
+  if (ep && /^\d+$/.test(String(ep))) {
+    return new Date(Number(ep) * 1000).toISOString();
+  }
+  try {
+    const t = require('child_process').execFileSync(
+      'git', ['log', '-1', '--format=%cI'],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim();
+    if (t) return t;
+  } catch (e) { /* 不是 git 仓库 → 走下面 */ }
+  return '1970-01-01T00:00:00.000Z';
+}
+const BUILD_STAMP = buildStamp();
+
 for (const sid of SUBJECTS) {
   const f = path.join(DATA, 'books-' + sid + '.json');
   if (!fs.existsSync(f)) { fail(`缺少教材数据：books-${sid}.json`); continue; }
@@ -110,7 +139,7 @@ if (problems.length) report();
 const booksLiteral =
   'var BOOKS = ' + JSON.stringify(books, null, 0)
     .replace(/<\//g, '<\\/') + ';\n' +
-  '/* 教材课时数据：' + String(totalLessons) + ' 课时 · 生成于 ' + new Date().toISOString() + ' */';
+  '/* 教材课时数据：' + String(totalLessons) + ' 课时 · 生成于 ' + BUILD_STAMP + ' */';
 
 /* 版本号与构建时间：注入到页面。版本号取 electron/package.json（唯一权威来源）。 */
 const pkgPath = path.join(ROOT, 'electron', 'package.json');
@@ -120,13 +149,12 @@ try {
 } catch (e) {
   console.warn('读不到 electron/package.json 的版本号，用 dev');
 }
-const BUILD_TIME = new Date().toISOString();
+
 
 const out = template
   .replace('/* __BOOKS_DATA__ */', () => booksLiteral)
   .replace('/* __APP_JS__ */', () => appJs)
   .replace(/__VERSION__/g, () => APP_VERSION)
-  .replace(/__BUILD_TIME__/g, () => BUILD_TIME)
   .replace(/__APP_VERSION__/g, () => APP_VERSION)
   .replace(/__LOGO_DATA_URI__/g, () => LOGO_DATA_URI);
 
@@ -153,7 +181,7 @@ const checks = [
   ['含 <!DOCTYPE html>', produced.startsWith('<!DOCTYPE html>')],
   ['版本号已注入（无残留占位符）', !produced.includes('__VERSION__')],
   ['代码里的版本号已替换', !produced.includes('__APP_VERSION__')],
-  ['构建时间已注入', !produced.includes('__BUILD_TIME__')],
+  ['构建时间戳已注入（无残留占位符）', !produced.includes('__BUILD_TIME__')],
   ['含 BOOKS 数据', produced.includes('var BOOKS =')],
   ['含应用逻辑', produced.includes('window.__classboard')],
   ['无残留占位符', !produced.includes('/* __BOOKS_DATA__ */') && !produced.includes('/* __APP_JS__ */')],

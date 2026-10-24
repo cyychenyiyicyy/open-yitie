@@ -25,6 +25,12 @@ Thumbs.db
 .idea/
 *.swp
 
-# ---- 验收截图（体积大，按需保留）----
+# ---- 验收截图与生成的报告（体积大 / 每次跑都变，按需保留）----
 screenshots/
-*.report.md
+.tmp/
+# ⚠️ 报告文件名是 `static-check-report.md` / `report-wizard.md` ——
+#    早先写的 `*.report.md` **匹配不到**（中间是 -report 不是 .report）
+#    ⇒ 报告被提交进仓库了（2026-10-24 踩过）。
+*-report.md
+report-*.md
+tools/report-*.md
